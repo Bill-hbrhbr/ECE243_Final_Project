@@ -13,10 +13,10 @@
 
 // Define the IRQ exception handler
 __attribute__ ((interrupt ("IRQ")))
-void service_irq (void) {
+void __cs3_isr_irq(void) {
     volatile int *cpu_ptr = (int *) MPCORE_GIC_CPUIF;
-    volatile int *acknowledge_ptr = cpu_ptr + ICCIAR;
-    volatile int *clear_interrupt_ptr = cpu_ptr + ICCEOIR;
+    volatile int *acknowledge_ptr = (int *) (MPCORE_GIC_CPUIF + ICCIAR);
+    volatile int *clear_interrupt_ptr = (int *) (MPCORE_GIC_CPUIF + ICCEOIR);
     
     // Go to the correct interrupt service routine
     int interrupt_id = *acknowledge_ptr;
@@ -31,28 +31,4 @@ void service_irq (void) {
     
     // Clear the interrupt
     *clear_interrupt_ptr = interrupt_id;
-}
-
-__attribute__ ((interrupt ("FIQ")))
-void service_fiq (void) {
-    while (1)
-        ;
-}
-
-__attribute__ ((interrupt ("SWI")))
-void service_svc (void) {
-    while (1)
-        ;
-}
-
-__attribute__ ((interrupt ("ABORT")))
-void service_abt (void) {
-    while (1)
-        ;
-}
-
-__attribute__ ((interrupt ("UNDEF")))
-void service_und (void) {
-    while (1)
-        ;
 }

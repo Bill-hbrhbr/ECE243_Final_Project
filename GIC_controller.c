@@ -18,7 +18,7 @@
 */
 void config_GIC(void) {
     
-    // configure the PS2 port (Interrupt ID = 72)
+    // configure the PS2 port (Interrupt ID = 79)
     config_interrupt (PS2_IRQ, CPU0); 
     
     // Set Interrupt Priority Mask Register (ICCPMR). Enable interrupts of all priorities
