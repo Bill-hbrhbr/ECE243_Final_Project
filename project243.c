@@ -44,8 +44,8 @@
 #define FPGA_BRIDGE           0xFFD0501C
 
 /* ARM A9 MPCORE devices */
-#define   PERIPH_BASE         0xFFFEC000    // base address of peripheral devices
-#define   MPCORE_PRIV_TIMER   0xFFFEC600    // PERIPH_BASE + 0x0600
+#define PERIPH_BASE           0xFFFEC000    // base address of peripheral devices
+#define MPCORE_PRIV_TIMER     0xFFFEC600    // PERIPH_BASE + 0x0600
 
 /* Interrupt controller (GIC) CPU interface(s) */
 #define MPCORE_GIC_CPUIF      0xFFFEC100    // PERIPH_BASE + 0x100
@@ -67,6 +67,18 @@
 #define INTERVAL_TIMER_IRQ    72
 #define PS2_IRQ               79
 #define PS2_DUAL_IRQ          89
+
+/* Program Modes */
+#define USER_MODE             0x10
+#define FIQ_MODE              0x11
+#define IRQ_MODE              0x12
+#define SVC_MODE              0x13
+#define ABORT_MODE            0x17
+#define UNDEF_MODE            0x1B
+#define SYS_MODE              0x1F
+
+#define INT_ENABLE            0x40
+#define INT_DISABLE           0xC0
 
 /* VGA settings */
 #define SCREEN_WIDTH          320
@@ -93,7 +105,9 @@
 //    int delta_x, delta_y;
 //} Square;
 
-volatile int pixel_buffer_start; // global variable
+// global variables
+volatile int pixel_buffer_start; 
+volatile unsigned char mouse_byte1, mouse_byte2, mouse_byte3;
 
 //void plot_pixel(unsigned int x, unsigned int y, unsigned short int line_color);
 //void swap(unsigned int *x, unsigned int *y);
@@ -110,14 +124,15 @@ volatile int pixel_buffer_start; // global variable
 
 int main(void)
 {
-    volatile int* pixel_ctrl_ptr = (int *)PIXEL_BUF_CTRL_BASE;
-    volatile int* pixel_front_buffer_ptr = pixel_ctrl_ptr;
-    volatile int* pixel_back_buffer_ptr = pixel_ctrl_ptr + 0x1;
-    volatile int* pixel_resolution_ptr = pixel_ctrl_ptr + 0x2;
-    volatile int* pixel_status_ptr = pixel_ctrl_ptr + 0x3;
-    
-    // Seed random engine
-    srand((unsigned) time(NULL));
+//    volatile int* pixel_ctrl_ptr = (int *)PIXEL_BUF_CTRL_BASE;
+//    volatile int* pixel_front_buffer_ptr = pixel_ctrl_ptr;
+//    volatile int* pixel_back_buffer_ptr = pixel_ctrl_ptr + 0x1;
+//    volatile int* pixel_resolution_ptr = pixel_ctrl_ptr + 0x2;
+//    volatile int* pixel_status_ptr = pixel_ctrl_ptr + 0x3;
+//    
+//    // Seed random engine
+//    srand((unsigned) time(NULL));
+
 //    // Initialize 8 squares
 //    Square s[NUM_SQUARES], sOld1[NUM_SQUARES], sOld2[NUM_SQUARES];
 //    for (unsigned int i = 0; i < NUM_SQUARES; ++i) {
@@ -130,44 +145,58 @@ int main(void)
 //        sOld2[i] = sOld1[i] = s[i];
 //    }
     
-    // Set back buffer
-    *pixel_back_buffer_ptr = SDRAM_BASE; // start of SDRAM memory
-    // Clear back buffer
-    pixel_buffer_start = *pixel_back_buffer_ptr; // point to the back buffer
-    clear_screen();
-    // Write a one to the front buffer to turn on status flag S
-    *pixel_front_buffer_ptr = 0x1;
-    // Wait for swap
-    wait_for_vsync(pixel_status_ptr);
+//    // Set back buffer
+//    *pixel_back_buffer_ptr = SDRAM_BASE; // start of SDRAM memory
+//    // Clear back buffer
+//    pixel_buffer_start = *pixel_back_buffer_ptr; // point to the back buffer
+//    clear_screen();
+//    // Write a one to the front buffer to turn on status flag S
+//    *pixel_front_buffer_ptr = 0x1;
+//    // Wait for swap
+//    wait_for_vsync(pixel_status_ptr);
+//    
+//    // Set front buffer
+//    *pixel_back_buffer_ptr = FPGA_ONCHIP_BASE; // start of FPGA On-Chip Memory
+//    // Clear front buffer
+//    pixel_buffer_start = *pixel_back_buffer_ptr; // point to the back buffer
+//    clear_screen();
+//    // Write a one to the front buffer to turn on status flag S
+//    *pixel_front_buffer_ptr = 0x1;
+//    // Wait for swap
+//    wait_for_vsync(pixel_status_ptr);
     
-    // Set front buffer
-    *pixel_back_buffer_ptr = FPGA_ONCHIP_BASE; // start of FPGA On-Chip Memory
-    // Clear front buffer
-    pixel_buffer_start = *pixel_back_buffer_ptr; // point to the back buffer
-    clear_screen();
-    // Write a one to the front buffer to turn on status flag S
-    *pixel_front_buffer_ptr = 0x1;
-    // Wait for swap
-    wait_for_vsync(pixel_status_ptr);
+    
+    // 
+    asm("MOV R0, #INT_DISABLE | IRQ_MODE");
+    asm("MSR CPSR_c, R0");
+    asm("");
+    asm("");
+    asm("");
+    asm("");
+    asm("");
+    asm("");
+    
+    config_GIC();
+    
     
     while (1) {
-        // new back buffer
-        pixel_buffer_start = *pixel_back_buffer_ptr; 
-        
-        // Redraw the graph two frames ago with black color
-        draw_graph(sOld2, COLOR_BLACK);
-        
-        // Draw new graph
-        draw_graph(s, COLOR_BLUE);
-        
-        // Update directions and positions
-        update_box(s, sOld1, sOld2);
-        
-        // Write a one to the front buffer to turn on status flag S
-        *pixel_front_buffer_ptr = 1;
-        
-        // poll the status register. if the flag is still on, wait
-        wait_for_vsync(pixel_status_ptr);
+//        // new back buffer
+//        pixel_buffer_start = *pixel_back_buffer_ptr; 
+//        
+//        // Redraw the graph two frames ago with black color
+//        draw_graph(sOld2, COLOR_BLACK);
+//        
+//        // Draw new graph
+//        draw_graph(s, COLOR_BLUE);
+//        
+//        // Update directions and positions
+//        update_box(s, sOld1, sOld2);
+//        
+//        // Write a one to the front buffer to turn on status flag S
+//        *pixel_front_buffer_ptr = 1;
+//        
+//        // poll the status register. if the flag is still on, wait
+//        wait_for_vsync(pixel_status_ptr);
     }
 }
 

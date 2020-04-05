@@ -19,16 +19,16 @@
 void config_GIC(void) {
     
     // configure the KEYs parallel port (Interrupt ID = 73)
-    config_interrupt (73, 1); 
+    config_interrupt (PS2_IRQ, 0x1); 
     
     // Set Interrupt Priority Mask Register (ICCPMR). Enable interrupts of all priorities
     *((int *) MPCORE_GIC_CPUIF + ICCICR) = 0xFFFF;
     
     // Set CPU Interface Control Register (ICCICR). Enable signaling of interrupts
-    *((int *) MPCORE_GIC_CPUIF + ICCICR) = 1;
+    *((int *) MPCORE_GIC_CPUIF + ICCICR) = 0x1;
     
     // Configure the Distributor Control Register (ICDDCR) to send pending interrupts to CPUs
-    *((int *) MPCORE_GIC_DIST + ICDDCR) = 1;
+    *((int *) MPCORE_GIC_DIST + ICDDCR) = 0x1;
 }
 
 /*
