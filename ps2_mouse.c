@@ -33,8 +33,16 @@ void mouse_isr(void) {
         unsigned char sign_y = mouse_byte1 & 0x20;
         
         // update mouse positions
-        mouse_x += sign_x ? -mouse_byte2 : +mouse_byte2;
-        mouse_y += sign_y ? -mouse_byte3 : +mouse_byte3;
+        if (sign_x) {
+            mouse_x -= (0x100 - mouse_byte2);
+        } else {
+            mouse_x += mouse_byte2;
+        }
+        if (sign_y) {
+            mouse_y -= (0x100 - mouse_byte3);
+        } else {
+            mouse_y += mouse_byte3;
+        }
         
         // check box boundaries
         if (mouse_x < 0) {
