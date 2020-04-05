@@ -62,11 +62,19 @@
 #define ICDIPTR               0x800         // offset to interrupt processor targets regs
 #define ICDICFR               0xC00         // offset to interrupt configuration regs
 
+/* Interrupt IDs */
+#define MPCORE_PRIV_TIMER_IRQ 29
+#define INTERVAL_TIMER_IRQ    72
+#define PS2_IRQ               79
+#define PS2_DUAL_IRQ          89
+
+/* VGA settings */
 #define SCREEN_WIDTH          320
 #define SCREEN_HEIGHT         240
 #define SQUARE_SIZE           8
 #define NUM_SQUARES           8
 
+/* Colors */
 #define COLOR_BLUE            0x001F  
 #define COLOR_RED             0xF800  
 #define COLOR_GREEN           0x07E0
@@ -80,25 +88,25 @@
 #include "math.h"
 #include "time.h"
 
-typedef struct square{
-    unsigned int pos_x, pos_y;
-    int delta_x, delta_y;
-} Square;
+//typedef struct square{
+//    unsigned int pos_x, pos_y;
+//    int delta_x, delta_y;
+//} Square;
 
 volatile int pixel_buffer_start; // global variable
 
-void plot_pixel(unsigned int x, unsigned int y, unsigned short int line_color);
-void swap(unsigned int *x, unsigned int *y);
-void draw_line(
-        unsigned int x0, 
-        unsigned int y0, 
-        unsigned int x1, 
-        unsigned int y1, 
-        unsigned short int line_color);
-void clear_screen();
-void draw_graph(Square *s, unsigned short int graph_color);
-void update_box(Square *s, Square *sOld1, Square *sOld2);
-void wait_for_vsync(volatile int* pixel_status_ptr);
+//void plot_pixel(unsigned int x, unsigned int y, unsigned short int line_color);
+//void swap(unsigned int *x, unsigned int *y);
+//void draw_line(
+//        unsigned int x0, 
+//        unsigned int y0, 
+//        unsigned int x1, 
+//        unsigned int y1, 
+//        unsigned short int line_color);
+//void clear_screen();
+//void draw_graph(Square *s, unsigned short int graph_color);
+//void update_box(Square *s, Square *sOld1, Square *sOld2);
+//void wait_for_vsync(volatile int* pixel_status_ptr);
 
 int main(void)
 {
@@ -110,35 +118,35 @@ int main(void)
     
     // Seed random engine
     srand((unsigned) time(NULL));
-    // Initialize 8 squares
-    Square s[NUM_SQUARES], sOld1[NUM_SQUARES], sOld2[NUM_SQUARES];
-    for (unsigned int i = 0; i < NUM_SQUARES; ++i) {
-        s[i].pos_x = rand() % (SCREEN_WIDTH - SQUARE_SIZE);
-        s[i].pos_y = rand() % (SCREEN_HEIGHT - SQUARE_SIZE);
-        s[i].delta_x = (rand() % 2) ? 1 : -1;
-        s[i].delta_y = (rand() % 2) ? 1 : -1;
-        
-        // Initialize previous data to current ones
-        sOld2[i] = sOld1[i] = s[i];
-    }
+//    // Initialize 8 squares
+//    Square s[NUM_SQUARES], sOld1[NUM_SQUARES], sOld2[NUM_SQUARES];
+//    for (unsigned int i = 0; i < NUM_SQUARES; ++i) {
+//        s[i].pos_x = rand() % (SCREEN_WIDTH - SQUARE_SIZE);
+//        s[i].pos_y = rand() % (SCREEN_HEIGHT - SQUARE_SIZE);
+//        s[i].delta_x = (rand() % 2) ? 1 : -1;
+//        s[i].delta_y = (rand() % 2) ? 1 : -1;
+//        
+//        // Initialize previous data to current ones
+//        sOld2[i] = sOld1[i] = s[i];
+//    }
     
     // Set back buffer
-    *pixel_back_buffer_ptr = 0xC0000000; // start of SDRAM memory
+    *pixel_back_buffer_ptr = SDRAM_BASE; // start of SDRAM memory
     // Clear back buffer
     pixel_buffer_start = *pixel_back_buffer_ptr; // point to the back buffer
     clear_screen();
     // Write a one to the front buffer to turn on status flag S
-    *pixel_front_buffer_ptr = 1;
+    *pixel_front_buffer_ptr = 0x1;
     // Wait for swap
     wait_for_vsync(pixel_status_ptr);
     
     // Set front buffer
-    *pixel_back_buffer_ptr = 0xC8000000; // start of FPGA On-Chip Memory
+    *pixel_back_buffer_ptr = FPGA_ONCHIP_BASE; // start of FPGA On-Chip Memory
     // Clear front buffer
     pixel_buffer_start = *pixel_back_buffer_ptr; // point to the back buffer
     clear_screen();
     // Write a one to the front buffer to turn on status flag S
-    *pixel_front_buffer_ptr = 1;
+    *pixel_front_buffer_ptr = 0x1;
     // Wait for swap
     wait_for_vsync(pixel_status_ptr);
     
