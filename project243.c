@@ -53,6 +53,8 @@
 #define ICCPMR                0x04          // offset to interrupt priority mask reg
 #define ICCIAR                0x0C          // offset to interrupt acknowledge reg
 #define ICCEOIR               0x10          // offset to end of interrupt reg
+#define CPU0                  0x1           // CPU0
+#define CPU1                  0x2           // CPU1
 
 /* Interrupt controller (GIC) distributor interface(s) */
 #define MPCORE_GIC_DIST       0xFFFED000    // PERIPH_BASE + 0x1000
@@ -165,18 +167,8 @@ int main(void)
 //    // Wait for swap
 //    wait_for_vsync(pixel_status_ptr);
     
-    
-    // 
-    asm("MOV R0, #INT_DISABLE | IRQ_MODE");
-    asm("MSR CPSR_c, R0");
-    asm("");
-    asm("");
-    asm("");
-    asm("");
-    asm("");
-    asm("");
-    
-    config_GIC();
+    // intialize interrupt services
+    init_IRQ();
     
     
     while (1) {

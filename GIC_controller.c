@@ -18,8 +18,8 @@
 */
 void config_GIC(void) {
     
-    // configure the KEYs parallel port (Interrupt ID = 73)
-    config_interrupt (PS2_IRQ, 0x1); 
+    // configure the PS2 port (Interrupt ID = 72)
+    config_interrupt (PS2_IRQ, CPU0); 
     
     // Set Interrupt Priority Mask Register (ICCPMR). Enable interrupts of all priorities
     *((int *) MPCORE_GIC_CPUIF + ICCICR) = 0xFFFF;
@@ -65,4 +65,11 @@ void config_interrupt (int N, int CPU_target) {
     
     /* Now that we know the register address and value, write to (only) the appropriate byte */
     *(char *) address = (char) CPU_target;
+}
+
+// Configure the ps2 mouse interrupt
+void config_ps2_mouse() {
+    // Enable the ps2 interrupt
+    volatile int *ps2_status_ptr = (int *) (PS2_BASE + 0x4);
+    *ps2_status_ptr = 0x1;
 }

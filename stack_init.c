@@ -24,19 +24,30 @@
 
 
 
-/* Set up stack pointers for IRQ and SVC processor modes */
-void init_stack(void) {
+// intialize interrupt services
+void init_IRQ(void) {
+    /* Set up stack pointers for IRQ and SVC processor modes */
     int mode, stack_top;
     
     // IRQ mode
     mode = INT_DISABLE | IRQ_MODE;
     stack_top = A9_ONCHIP_END - 3;
-    asm volatile("msr cpsr_c, #[immd]" : /* no output */ : [immd] "M" (mode));
-    asm volatile("ldr sp, =[immd]" : /* no output */ : [immd] "M" (stack_top));
+    asm volatile("msr cpsr_c, %[mode]" : /* no output */ : [mode] "r" (mode));
+    asm volatile("mov sp, %[sp]" : /* no output */ : [sp] "r" (stack_top));
     
     // SVC mode
     mode = INT_DISABLE | SVC_MODE;
     stack_top = DDR_END - 3;
-    asm volatile("msr cpsr_c, #[immd]" : /* no output */ : [immd] "M" (mode));
-    asm volatile("ldr sp, =[immd]" : /* no output */ : [immd] "M" (stack_top));
+    asm volatile("msr cpsr_c, %[mode]" : /* no output */ : [mode] "r" (mode));
+    asm volatile("mov sp, %[sp]" : /* no output */ : [sp] "r" (stack_top));
+    
+//    // configure Generic Interrupt Controller (GIC)
+//    config_GIC();
+//    
+//    // configure ps2 mouse
+//    config_ps2_mouse();
+    
+    // Enable IRQ, disable FIQ
+    mode = INT_ENABLE | SVC_MODE;
+    asm volatile("msr cpsr_c, %[mode]" : /* no output */ : [mode] "r" (mode));
 }

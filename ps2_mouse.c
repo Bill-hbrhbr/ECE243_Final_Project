@@ -23,10 +23,3 @@ void mouse_isr(void) {
         *ps2_ptr = 0xF4; // send data command
     }
 }
-
-// Configure the ps2 mouse interrupt
-void config_ps2_mouse() {
-    // Enable the ps2 interrupt
-    volatile int *ps2_status_ptr = (int *) (PS2_BASE + 0x4);
-    *ps2_status_ptr = 0x1;
-}
