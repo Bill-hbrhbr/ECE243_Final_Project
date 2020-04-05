@@ -4,7 +4,7 @@ volatile unsigned char mouse_byte1, mouse_byte2, mouse_byte3;
 
 // Interrupt service routine for ps2 mouse
 void mouse_isr(void) {
-    volatile int *ps2_ptr = (int *) PS2_BASE
+    volatile int *ps2_ptr = (int *) PS2_BASE;
     int ps2_data, data_valid;
     // Get the latest data
     ps2_data = *ps2_ptr;
@@ -22,4 +22,11 @@ void mouse_isr(void) {
     if (mouse_byte2 == 0xAA && mouse_byte3 == 0x00) {
         *ps2_ptr = 0xF4; // send data command
     }
+}
+
+// Configure the ps2 mouse interrupt
+void config_ps2_mouse() {
+    // Enable the ps2 interrupt
+    volatile int *ps2_status_ptr = (int *) (PS2_BASE + 0x4);
+    *ps2_status_ptr = 0x1;
 }
