@@ -21,5 +21,33 @@ void mouse_isr(void) {
     // If the mouse is inactive, make it send data
     if (mouse_byte2 == 0xAA && mouse_byte3 == 0x00) {
         *ps2_ptr = 0xF4; // send data command
+        mouse_byte_num = 0;
+    } else {
+        mouse_byte_num = (mouse_byte_num + 1) % 3;
+    }
+    
+    // Update the mouse position
+    if (mouse_byte_num == 0) {
+        // extract x, y signs
+        unsigned char sign_x = mouse_byte1 & 0x10;
+        unsigned char sign_y = mouse_byte1 & 0x20;
+        
+        // update mouse positions
+        mouse_x += sign_x ? -mouse_byte2 : +mouse_byte2;
+        mouse_y += sign_y ? -mouse_byte3 : +mouse_byte3;
+        
+        // check box boundaries
+        if (mouse_x < 0) {
+            mouse_x = 0;
+        }
+        if (mouse_x >= SCREEN_WIDTH) {
+            mouse_x = SCREEN_WIDTH - 1;
+        }
+        if (mouse_y < 0) {
+            mouse_y = 0;
+        }
+        if (mouse_y >= SCREEN_HEIGHT) {
+            mouse_y = SCREEN_HEIGHT - 1;
+        }
     }
 }

@@ -22,8 +22,6 @@
 #define INT_ENABLE            0x40
 #define INT_DISABLE           0xC0
 
-
-
 // intialize interrupt services
 void init_IRQ(void) {
     int mode;
