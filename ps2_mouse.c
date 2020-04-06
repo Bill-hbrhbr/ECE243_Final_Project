@@ -8,16 +8,18 @@ void mouse_isr(void) {
     data_valid = ps2_data & 0x8000;
     
     // if the data is valid, update the bytes
-    if (data_valid) {
-        mouse_byte1 = mouse_byte2;
-        mouse_byte2 = mouse_byte3;
-        mouse_byte3 = ps2_data & 0xFF;
+    if (!data_valid) {
+        return;
     }
+    mouse_byte1 = mouse_byte2;
+    mouse_byte2 = mouse_byte3;
+    mouse_byte3 = ps2_data & 0xFF;
     
     // If the mouse is inactive, make it send data
     if (mouse_byte2 == 0xAA && mouse_byte3 == 0x00) {
         *ps2_ptr = 0xF4; // send data command
         mouse_byte_num = 0;
+        return;
     } else {
         mouse_byte_num = (mouse_byte_num + 1) % 3;
     }
@@ -59,14 +61,17 @@ void mouse_isr(void) {
     }
     
     // check if the left button is clicked on an object
-    unsigned char clicked = mouse_byte1 & 0x1;
-    if (clicked) {
+    bool clicked = (bool) (mouse_byte1 & 0x1);
+    // Edge-triggered rather than level sensitive
+    if (clicked && !last_clicked) {
         int r, c;
         bool click_valid = get_clicked_tile(&r, &c);
         if (click_valid) {
             update_grid_status(r, c);
         }
     }
+    // Update the clicking status
+    last_clicked = clicked;
 }
 
 // return true if the clicked tile is within grid, false otherwise
@@ -89,8 +94,12 @@ bool get_clicked_tile(int *r, int *c) {
 
 // update the grid based on the clicked box
 void update_grid_status(int r, int c) {
-    // If the block is not active, return;
+    // If the block is not active, return
     if (!s[r][c].active) {
+        return;
+    }
+    // If clicking on the same tile, return
+    if (r == clicked_row && c == clicked_col) {
         return;
     }
     // Initial selection, simply update clicked pos
@@ -109,8 +118,8 @@ void update_grid_status(int r, int c) {
         s[r][c].active = false;
         s[r][c].exposed = false;
         // get rid of the boxes
-        //remove_block(clicked_row, clicked_col);
-        //remove_block(r, c);
+        remove_block(clicked_row, clicked_col);
+        remove_block(r, c);
         // Update the global variables to default
         clicked_row = -1;
         clicked_col = -1;
@@ -157,6 +166,20 @@ void mark_selection(int r, int c, short int color) {
             buffer[block_left + x][block_top + y] = color;
             plot_pixel_with_buffer(SDRAM_BASE, block_left + x, block_top + y, color);
             plot_pixel_with_buffer(FPGA_ONCHIP_BASE, block_left + x, block_top + y, color);
+        }
+    }
+}
+
+// Remove a box from the screen
+void remove_block(int r, int c) {
+    // Get the topleft corner of the block
+    int block_left = grid_left + c * SQUARE_SIZE;
+    int block_top = grid_top + r * SQUARE_SIZE;
+    for (int x = 0; x < SQUARE_SIZE; ++x) {
+        for (int y = 0; y < SQUARE_SIZE; ++y) {
+            buffer[block_left + x][block_top + y] = COLOR_BLACK;
+            plot_pixel_with_buffer(SDRAM_BASE, block_left + x, block_top + y, COLOR_BLACK);
+            plot_pixel_with_buffer(FPGA_ONCHIP_BASE, block_left + x, block_top + y, COLOR_BLACK);
         }
     }
 }
