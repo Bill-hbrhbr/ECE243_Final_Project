@@ -38,7 +38,7 @@ void wait_for_vsync(void) {
     // Switch buffer number
     if (current_buffer_number == 0) {
         current_buffer_number = 1;
-    } else if (current_buffer_number = 1) {
+    } else if (current_buffer_number == 1) {
         current_buffer_number = 0;
     }
 }
@@ -46,6 +46,10 @@ void wait_for_vsync(void) {
 /* plot a pixel */
 void plot_pixel(int x, int y, short int pixel_color) {
     *(short int *)(pixel_buffer_start + (y << 10) + (x << 1)) = pixel_color;
+}
+
+void plot_pixel_with_buffer(volatile int buffer_start, int x, int y, short int pixel_color) {
+    *(short int *)(buffer_start + (y << 10) + (x << 1)) = pixel_color;
 }
 
 /* integer swap function */

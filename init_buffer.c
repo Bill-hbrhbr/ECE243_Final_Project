@@ -12,9 +12,9 @@ void init_buffer(void) {
 
 void init_blocks(void) {
     // Initialize all colors to black
-    for (int i = 0; i < NUM_ROWS; ++i) {
-        for (int j = 0; j < NUM_COLS; ++j) {
-            s[i][j].color = COLOR_BLACK;
+    for (int r = 0; r < NUM_ROWS; ++r) {
+        for (int c = 0; c < NUM_COLS; ++c) {
+            s[r][c].color = COLOR_BLACK;
         }
     }
     
@@ -58,11 +58,11 @@ void init_blocks(void) {
     }
     
     // Update buffer
-    for (int i = 0; i < NUM_ROWS; ++i) {
-        for (int j = 0; j < NUM_COLS; ++j) {
+    for (int r = 0; r < NUM_ROWS; ++r) {
+        for (int c = 0; c < NUM_COLS; ++c) {
             for (int x = 0; x < SQUARE_SIZE; ++x) {
                 for (int y = 0; y < SQUARE_SIZE; ++y) {
-                    buffer[grid_left + i * SQUARE_SIZE + x][grid_top + j * SQUARE_SIZE + y] = s[i][j].color;
+                    buffer[grid_left + c * SQUARE_SIZE + x][grid_top + r * SQUARE_SIZE + y] = s[r][c].color;
                 }
             }
         }

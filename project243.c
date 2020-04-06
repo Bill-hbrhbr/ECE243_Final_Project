@@ -86,10 +86,11 @@
 #define SCREEN_WIDTH          320
 #define SCREEN_HEIGHT         240
 #define SQUARE_SIZE           30
-#define NUM_ROWS              8
-#define NUM_COLS              6
+#define NUM_ROWS              6
+#define NUM_COLS              8
 #define NUM_BUFFERS           2
 #define CURSOR_SIZE           20
+#define SELECT_WIDTH          2
 
 /* Game status */
 #define START                 0x1
@@ -143,6 +144,8 @@ volatile int* pixel_resolution_ptr = (int *) (PIXEL_BUF_CTRL_BASE + 0x8);
 volatile int* pixel_status_ptr = (int *) (PIXEL_BUF_CTRL_BASE + 0xC);
 int mouse_x = 160, mouse_y = 120, mouse_byte_num = 0;
 const int grid_left = 30, grid_top = 30;
+bool last_clicked = false;
+int clicked_row = -1, clicked_col = -1;
 
 // Prototypes
 void init_buffer(void);
@@ -152,13 +155,20 @@ void init_cursors(void);
 void config_GIC(void);
 void config_interrupt (int N, int CPU_target);
 void config_ps2_mouse();
+
 void mouse_isr(void);
+bool get_clicked_tile(int *r, int *c);
+void update_grid_status(int r, int c);
+void mark_selection(int r, int c, short int color);
+
 void __cs3_isr_irq(void);
 void init_IRQ(void);
+
 void vga_init(void);
 void draw_box(int left, int top, int size, short int box_color);
 void wait_for_vsync(void);
 void plot_pixel(int x, int y, short int pixel_color);
+void plot_pixel_with_buffer(volatile int buffer_start, int x, int y, short int pixel_color);
 void swap(int *x, int *y);
 void draw_line(int x0, int y0, int x1, int y1, short int line_color);
 void clear_screen(void);
