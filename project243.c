@@ -147,6 +147,8 @@ const int grid_left = 30, grid_top = 30;
 // Prototypes
 void init_buffer(void);
 void init_blocks(void);
+void init_cursors(void);
+
 void config_GIC(void);
 void config_interrupt (int N, int CPU_target);
 void config_ps2_mouse();
@@ -161,6 +163,7 @@ void swap(int *x, int *y);
 void draw_line(int x0, int y0, int x1, int y1, short int line_color);
 void clear_screen(void);
 void draw_buffer(void);
+void draw_cursor(int left, int top, bool erase);
 
 int main(void) {
     // Seed random engine
@@ -172,6 +175,9 @@ int main(void) {
     // Initialize blocks
     init_blocks();
     
+    // Initialize buffer cursors
+    init_cursors();
+    
     // intialize interrupt services
     init_IRQ();
     
@@ -182,8 +188,15 @@ int main(void) {
         // new back buffer
         pixel_buffer_start = *pixel_back_buffer_ptr; 
         
-        // draw cursor
-        draw_cursor(mouse_x, mouse_y);
+        // erase the previous cursor
+        draw_cursor(cursor_info[current_buffer_number].x, cursor_info[current_buffer_number].y, true);
+        
+        // draw the new cursor
+        draw_cursor(mouse_x, mouse_y, false);
+        
+        // update the cursor info
+        cursor_info[current_buffer_number].x = mouse_x;
+        cursor_info[current_buffer_number].y = mouse_y;
         
         // Write a one to the front buffer to turn on status flag S
         *pixel_front_buffer_ptr = 1;

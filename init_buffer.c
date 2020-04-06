@@ -5,6 +5,9 @@ void init_buffer(void) {
             buffer[i][j] = COLOR_BLACK;
         }
     }
+    
+    // set initial buffer number
+    current_buffer_number = 0;
 }
 
 void init_blocks(void) {
@@ -63,5 +66,13 @@ void init_blocks(void) {
                 }
             }
         }
+    }
+}
+
+void init_cursors(void) {
+    // Set initial position to 0 to avoid vga index out of range
+    for (int i = 0; i < NUM_BUFFERS; ++i) {
+        cursor_info[i].x = 0;
+        cursor_info[i].y = 0;
     }
 }

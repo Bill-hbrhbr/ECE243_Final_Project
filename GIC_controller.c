@@ -1,18 +1,3 @@
-/* Interrupt controller (GIC) CPU interface(s) */
-#define MPCORE_GIC_CPUIF      0xFFFEC100    // PERIPH_BASE + 0x100
-#define ICCICR                0x00          // offset to CPU interface control reg
-#define ICCPMR                0x04          // offset to interrupt priority mask reg
-#define ICCIAR                0x0C          // offset to interrupt acknowledge reg
-#define ICCEOIR               0x10          // offset to end of interrupt reg
-
-/* Interrupt controller (GIC) distributor interface(s) */
-#define MPCORE_GIC_DIST       0xFFFED000    // PERIPH_BASE + 0x1000
-#define ICDDCR                0x00          // offset to distributor control reg
-#define ICDISER               0x100         // offset to interrupt set-enable regs
-#define ICDICER               0x180         // offset to interrupt clear-enable regs
-#define ICDIPTR               0x800         // offset to interrupt processor targets regs
-#define ICDICFR               0xC00         // offset to interrupt configuration regs
-
 /*
 * Configure the Generic Interrupt Controller (GIC)
 */

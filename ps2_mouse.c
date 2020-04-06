@@ -1,7 +1,3 @@
-#define PS2_BASE              0xFF200100
-
-volatile unsigned char mouse_byte1, mouse_byte2, mouse_byte3;
-
 // Interrupt service routine for ps2 mouse
 void mouse_isr(void) {
     volatile int *ps2_ptr = (int *) PS2_BASE;

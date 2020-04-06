@@ -35,6 +35,12 @@ void wait_for_vsync(void) {
     while ((*pixel_status_ptr) & 1) {
         ;
     }
+    // Switch buffer number
+    if (current_buffer_number == 0) {
+        current_buffer_number = 1;
+    } else if (current_buffer_number = 1) {
+        current_buffer_number = 0;
+    }
 }
 
 /* plot a pixel */
@@ -99,17 +105,32 @@ void draw_buffer(void) {
 }
 
 /* draw cursor */
-void draw_cursor(int left, int top) {
+void draw_cursor(int left, int top, bool erase) {
     short int color;
     for (int x = 0; x < CURSOR_SIZE; ++x) {
         for (int y = 0; y < CURSOR_SIZE; ++y) {
+            // get the vga positions
+            int vga_x = x + left, vga_y = y + top;
+            // skip the position if it is out of vga index bounds
+            if (vga_x >= SCREEN_WIDTH || vga_y >= SCREEN_HEIGHT) {
+                continue;
+            }
+            
+            // get the pixel color
             color = (cursor_mif[y][x * 2] << 8) | cursor_mif[y][x * 2 + 1];
             // skip the color if it is not black
             if (color) {
                 continue;
             }
-            // draw a white cursor
-            plot_pixel(x + left, y + top, COLOR_WHITE);
+            // Check erase conditions
+            if (erase) {
+                // Replace the pixel with buffer content
+                plot_pixel(vga_x, vga_y, buffer[vga_x][vga_y]);
+                
+            } else {
+                // draw a white cursor
+                plot_pixel(vga_x, vga_y, COLOR_WHITE);
+            }
         }
     }
 }
