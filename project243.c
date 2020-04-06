@@ -88,6 +88,8 @@
 #define SQUARE_SIZE           30
 #define NUM_ROWS              8
 #define NUM_COLS              6
+#define NUM_BUFFERS           2
+#define CURSOR_SIZE           20
 
 /* Game status */
 #define START                 0x1
@@ -122,6 +124,16 @@ typedef struct square{
 // Initialize the blocks
 Square s[NUM_ROWS][NUM_COLS];
 
+// Screen pixel colors
+short int buffer[SCREEN_WIDTH][SCREEN_HEIGHT];
+
+// Cursors
+int current_buffer_number;
+typedef struct cursor{
+    int x, y;
+} Cursor;
+Cursor cursor_info[NUM_BUFFERS];
+
 // global variables
 volatile unsigned char mouse_byte1, mouse_byte2, mouse_byte3;
 volatile int pixel_buffer_start;
@@ -133,6 +145,8 @@ int mouse_x = 160, mouse_y = 120, mouse_byte_num = 0;
 const int grid_left = 30, grid_top = 30;
 
 // Prototypes
+void init_buffer(void);
+void init_blocks(void);
 void config_GIC(void);
 void config_interrupt (int N, int CPU_target);
 void config_ps2_mouse();
@@ -146,56 +160,17 @@ void plot_pixel(int x, int y, short int pixel_color);
 void swap(int *x, int *y);
 void draw_line(int x0, int y0, int x1, int y1, short int line_color);
 void clear_screen(void);
+void draw_buffer(void);
 
 int main(void) {
     // Seed random engine
     srand((unsigned) time(NULL));
     
-    // Initialize all colors to black
-    for (int i = 0; i < NUM_ROWS; ++i) {
-        for (int j = 0; j < NUM_COLS; ++j) {
-            s[i][j].color = COLOR_BLACK;
-        }
-    }
+    // Initialize buffer
+    init_buffer();
     
-    // Initialize all blocks
-    for (int i = 0; i < NUM_ROWS; ++i) {
-        for (int j = 0; j < NUM_COLS; ++j) {
-            // Get a random color
-            bool color_valid = false;
-            int color_choice = rand() % NUM_COLORS;
-            while (!color_valid) {
-                color_valid = true;
-                color_choice = (color_choice + 1) % NUM_COLORS;
-                // Check if same color already exists in adjacent celles
-                if (i > 0 && colors[color_choice] == s[i - 1][j].color) {
-                    color_valid = false;
-                }
-                if (i < NUM_ROWS - 1 && colors[color_choice] == s[i + 1][j].color) {
-                    color_valid = false;
-                }
-                if (j > 0 && colors[color_choice] == s[i][j - 1].color) {
-                    color_valid = false;
-                }
-                if (j < NUM_COLS - 1 && colors[color_choice] == s[i][j + 1].color) {
-                    color_valid = false;
-                }
-            }
-            s[i][j].color = colors[color_choice];
-            
-            // Intialize position
-            s[i][j].left = grid_left + i * SQUARE_SIZE;
-            s[i][j].top = grid_top + j * SQUARE_SIZE;
-            
-            // Intialize status
-            s[i][j].active = true;
-            if (i == 0 || i == NUM_ROWS - 1 || j == 0 || j == NUM_COLS - 1) {
-                s[i][j].exposed = true;
-            } else {
-                s[i][j].exposed = false;
-            }
-        }
-    }
+    // Initialize blocks
+    init_blocks();
     
     // intialize interrupt services
     init_IRQ();
@@ -207,8 +182,8 @@ int main(void) {
         // new back buffer
         pixel_buffer_start = *pixel_back_buffer_ptr; 
         
-        // draw box
-        draw_box(mouse_x, mouse_y, 10, COLOR_WHITE);
+        // draw cursor
+        draw_cursor(mouse_x, mouse_y);
         
         // Write a one to the front buffer to turn on status flag S
         *pixel_front_buffer_ptr = 1;
