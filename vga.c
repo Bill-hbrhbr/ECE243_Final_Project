@@ -5,6 +5,11 @@ void vga_init(void) {
     // Clear back buffer
     pixel_buffer_start = *pixel_back_buffer_ptr; // point to the back buffer
     clear_screen();
+    for (int i = 0; i < NUM_ROWS; ++i) {
+        for (int j = 0; j < NUM_COLS; ++j) {
+            draw_box(s[i][j].left, s[i][j].top, SQUARE_SIZE, s[i][j].color);
+        }
+    }
     // Write a one to the front buffer to turn on status flag S
     *pixel_front_buffer_ptr = 0x1;
     // Wait for swap
@@ -15,6 +20,11 @@ void vga_init(void) {
     // Clear front buffer
     pixel_buffer_start = *pixel_back_buffer_ptr; // point to the back buffer
     clear_screen();
+    for (int i = 0; i < NUM_ROWS; ++i) {
+        for (int j = 0; j < NUM_COLS; ++j) {
+            draw_box(s[i][j].left, s[i][j].top, SQUARE_SIZE, s[i][j].color);
+        }
+    }
     // Write a one to the front buffer to turn on status flag S
     *pixel_front_buffer_ptr = 0x1;
     // Wait for swap

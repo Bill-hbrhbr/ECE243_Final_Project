@@ -85,21 +85,42 @@
 /* VGA settings */
 #define SCREEN_WIDTH          320
 #define SCREEN_HEIGHT         240
-#define SQUARE_SIZE           8
-#define NUM_SQUARES           8
+#define SQUARE_SIZE           30
+#define NUM_ROWS              8
+#define NUM_COLS              6
+
+/* Game status */
+#define START                 0x1
+#define PLAY                  0x2
+#define WAIT                  0x4
 
 /* Colors */
 #define COLOR_BLUE            0x001F  
 #define COLOR_RED             0xF800  
 #define COLOR_GREEN           0x07E0
-#define COLOR_PINK            0xF81F 
+#define COLOR_PINK            0xF81F
+#define COLOR_YELLOW          0xFFF1
+#define COLOR_ORANGE          0xFEA0
 #define COLOR_WHITE           0xFFFF
 #define COLOR_BLACK           0x0000
+#define NUM_COLORS            6
+
+short int colors[NUM_COLORS] = {COLOR_BLUE, COLOR_RED, COLOR_GREEN, COLOR_PINK, COLOR_YELLOW, COLOR_ORANGE};
 
 #include "stdlib.h"
 #include "stdbool.h"
 #include "math.h"
 #include "time.h"
+
+typedef struct square{
+    short int color;
+    int left, top;
+    bool active;
+    bool exposed;
+} Square;
+
+// Initialize the blocks
+Square s[NUM_ROWS][NUM_COLS];
 
 // global variables
 volatile unsigned char mouse_byte1, mouse_byte2, mouse_byte3;
@@ -109,6 +130,7 @@ volatile int* pixel_back_buffer_ptr = (int *) (PIXEL_BUF_CTRL_BASE + 0x4);
 volatile int* pixel_resolution_ptr = (int *) (PIXEL_BUF_CTRL_BASE + 0x8);
 volatile int* pixel_status_ptr = (int *) (PIXEL_BUF_CTRL_BASE + 0xC);
 int mouse_x = 160, mouse_y = 120, mouse_byte_num = 0;
+const int grid_left = 30, grid_top = 30;
 
 // Prototypes
 void config_GIC(void);
@@ -126,6 +148,55 @@ void draw_line(int x0, int y0, int x1, int y1, short int line_color);
 void clear_screen(void);
 
 int main(void) {
+    // Seed random engine
+    srand((unsigned) time(NULL));
+    
+    // Initialize all colors to black
+    for (int i = 0; i < NUM_ROWS; ++i) {
+        for (int j = 0; j < NUM_COLS; ++j) {
+            s[i][j].color = COLOR_BLACK;
+        }
+    }
+    
+    // Initialize all blocks
+    for (int i = 0; i < NUM_ROWS; ++i) {
+        for (int j = 0; j < NUM_COLS; ++j) {
+            // Get a random color
+            bool color_valid = false;
+            int color_choice = rand() % NUM_COLORS;
+            while (!color_valid) {
+                color_valid = true;
+                color_choice = (color_choice + 1) % NUM_COLORS;
+                // Check if same color already exists in adjacent celles
+                if (i > 0 && colors[color_choice] == s[i - 1][j].color) {
+                    color_valid = false;
+                }
+                if (i < NUM_ROWS - 1 && colors[color_choice] == s[i + 1][j].color) {
+                    color_valid = false;
+                }
+                if (j > 0 && colors[color_choice] == s[i][j - 1].color) {
+                    color_valid = false;
+                }
+                if (j < NUM_COLS - 1 && colors[color_choice] == s[i][j + 1].color) {
+                    color_valid = false;
+                }
+            }
+            s[i][j].color = colors[color_choice];
+            
+            // Intialize position
+            s[i][j].left = grid_left + i * SQUARE_SIZE;
+            s[i][j].top = grid_top + j * SQUARE_SIZE;
+            
+            // Intialize status
+            s[i][j].active = true;
+            if (i == 0 || i == NUM_ROWS - 1 || j == 0 || j == NUM_COLS - 1) {
+                s[i][j].exposed = true;
+            } else {
+                s[i][j].exposed = false;
+            }
+        }
+    }
+    
     // intialize interrupt services
     init_IRQ();
     
@@ -137,7 +208,7 @@ int main(void) {
         pixel_buffer_start = *pixel_back_buffer_ptr; 
         
         // draw box
-        draw_box(mouse_x, mouse_y, 10, COLOR_RED);
+        draw_box(mouse_x, mouse_y, 10, COLOR_WHITE);
         
         // Write a one to the front buffer to turn on status flag S
         *pixel_front_buffer_ptr = 1;
