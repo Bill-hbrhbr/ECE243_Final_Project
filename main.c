@@ -86,7 +86,7 @@
 #define SQUARE_SIZE           30
 #define NUM_ROWS              6
 #define NUM_COLS              8
-#define NUM_BUFFERS           3
+#define NUM_BUFFERS           5
 #define CURSOR_SIZE           20
 #define SELECT_WIDTH          2
 #define GAME_TIME             70  /* in seconds */
@@ -139,12 +139,15 @@ Square s[NUM_ROWS][NUM_COLS];
 // Screen pixel colors
 short int buffer[SCREEN_WIDTH][SCREEN_HEIGHT];
 short int load_buffer[SCREEN_WIDTH][SCREEN_HEIGHT];
+short int win_buffer[SCREEN_WIDTH][SCREEN_HEIGHT];
+short int lose_buffer[SCREEN_WIDTH][SCREEN_HEIGHT];
 
 // Cursors
-int current_buffer_number;
+volatile int current_buffer_number;
 typedef struct buffer_info{
     int cursor_x, cursor_y;
     unsigned int buffer_addr;
+    short int (*buffer_ptr)[SCREEN_WIDTH][SCREEN_HEIGHT];
 } BufferInfo;
 BufferInfo buffers[NUM_BUFFERS];
 
@@ -160,6 +163,7 @@ const int grid_left = 20, grid_top = 30;
 bool last_clicked = false, run_mouse = false;
 int clicked_row = -1, clicked_col = -1;
 double play_time = 0;
+volatile int num_remaining_blocks;
 int timer_pos = TIMER_BOT;
 volatile bool game_start = false;
 
@@ -213,7 +217,7 @@ void plot_pixel_with_buffer(volatile int buffer_start, int x, int y, short int p
 void swap(int *x, int *y);
 void draw_line(int x0, int y0, int x1, int y1, short int line_color);
 void clear_screen(void);
-void draw_buffer(void);
+void draw_buffer(int buffer_id);
 void draw_cursor(int left, int top, bool erase, short int target_buffer[SCREEN_WIDTH][SCREEN_HEIGHT]);
 
 bool find_path(int src_row, int src_col, int dest_row, int dest_col);
@@ -225,104 +229,129 @@ int main(void) {
     // Seed random engine
     srand((unsigned) time(NULL));
     
-    // Initialize buffer address
+    // Initialize buffer address and pointers
     buffers[0].buffer_addr = FPGA_ONCHIP_BASE;
+    buffers[0].buffer_ptr = &buffer;
+    
     buffers[1].buffer_addr = SDRAM_BASE;
-    buffers[2].buffer_addr = SDRAM_BASE + 0x0800;
+    buffers[1].buffer_ptr = &buffer;
+    
+    buffers[2].buffer_addr = SDRAM_BASE + 0x40000;
+    buffers[2].buffer_ptr = &load_buffer;
+    
+    buffers[3].buffer_addr = SDRAM_BASE + 0x80000;
+    buffers[3].buffer_ptr = &win_buffer;
+    
+    buffers[4].buffer_addr = SDRAM_BASE + 0xC0000;
+    buffers[4].buffer_ptr = &lose_buffer;
     
     // Initialize buffer cursors
     init_cursors();
     
-    // Initialize buffer
-    init_buffer();
-    
     // Initialize load buffer
     init_load_buffer();
-    
-    // Initialize blocks
-    init_blocks();
-    
-    // Initialize dijkstra global variables
-    init_dijkstra();
     
     // intialize interrupt services
     init_IRQ();
     
     // initialize to the loading screen
     current_buffer_number = 2;
-    vga_init(2, 2);
     
-    // Wait for initial left click
-    while (!game_start) {
-        // new back buffer
-        pixel_buffer_start = *pixel_back_buffer_ptr; 
-        
-        // erase the previous cursor
-        draw_cursor(buffers[current_buffer_number].cursor_x, buffers[current_buffer_number].cursor_y, true, load_buffer);
-        
-        // draw the new cursor
-        draw_cursor(mouse_x, mouse_y, false, load_buffer);
-        
-        // update the cursor info
-        buffers[current_buffer_number].cursor_x = mouse_x;
-        buffers[current_buffer_number].cursor_y = mouse_y;
-        
-        // Write a one to the front buffer to turn on status flag S
-        *pixel_front_buffer_ptr = 1;
-        
-        // poll the status register. if the flag is still on, wait
-        wait_for_vsync();
-    }
-    
-    // Initialize the player screen
-    current_buffer_number = 0;
-    vga_init(0, 1);
-    
-    while (1) {
-        // new back buffer
-        pixel_buffer_start = *pixel_back_buffer_ptr; 
-        
-        // erase the previous cursor
-        draw_cursor(buffers[current_buffer_number].cursor_x, buffers[current_buffer_number].cursor_y, true, buffer);
-        
-        // draw connection if there is any
-        if (draw_connection) {
-            // Draw the next pixel
-            int x, y;
-            for (int i = 0; i < SQUARE_SIZE / 2; ++i) {
-                --connect_line_index;
-                x = connect_pixels[connect_line_index] & 0xFFFF;
-                y = connect_pixels[connect_line_index] >> 16;
-                plot_pixel_with_buffer(SDRAM_BASE, x, y, connection_color);
-                plot_pixel_with_buffer(FPGA_ONCHIP_BASE, x, y, connection_color);
-            }
+    while (true) {
+        vga_init(current_buffer_number, current_buffer_number);
+        // Wait for initial left click
+        while (!game_start) {
+            // new back buffer
+            pixel_buffer_start = *pixel_back_buffer_ptr; 
             
-            // If the line is complete, erase both the line and the box
-            if (connect_line_index == 0) {
-                for (int i = 0; i < connect_line_num_pixels; ++i) {
-                    x = connect_pixels[i] & 0xFFFF;
-                    y = connect_pixels[i] >> 16;
-                    plot_pixel_with_buffer(SDRAM_BASE, x, y, COLOR_BLACK);
-                    plot_pixel_with_buffer(FPGA_ONCHIP_BASE, x, y, COLOR_BLACK);
-                }
-                remove_block(match1_r, match1_c);
-                remove_block(match2_r, match2_c);
-                // Reset connection settings
-                draw_connection = false;
-            }
+            // erase the previous cursor
+            draw_cursor(
+                    buffers[current_buffer_number].cursor_x, 
+                    buffers[current_buffer_number].cursor_y, 
+                    true, 
+                    *(buffers[current_buffer_number].buffer_ptr)
+            );
+            
+            // draw the new cursor
+            draw_cursor(mouse_x, mouse_y, false, *(buffers[current_buffer_number].buffer_ptr));
+            
+            // update the cursor info
+            buffers[current_buffer_number].cursor_x = mouse_x;
+            buffers[current_buffer_number].cursor_y = mouse_y;
+            
+            // Write a one to the front buffer to turn on status flag S
+            *pixel_front_buffer_ptr = 1;
+            
+            // poll the status register. if the flag is still on, wait
+            wait_for_vsync();
         }
         
-        // draw the new cursor
-        draw_cursor(mouse_x, mouse_y, false, buffer);
+        // Initialize a new game buffer
+        init_buffer();
         
-        // update the cursor info
-        buffers[current_buffer_number].cursor_x = mouse_x;
-        buffers[current_buffer_number].cursor_y = mouse_y;
+        // Initialize blocks
+        init_blocks();
         
-        // Write a one to the front buffer to turn on status flag S
-        *pixel_front_buffer_ptr = 1;
+        // Initialize dijkstra global variables
+        init_dijkstra();
         
-        // poll the status register. if the flag is still on, wait
-        wait_for_vsync();
+        // Initialize the player screen
+        current_buffer_number = 0;
+        vga_init(0, 1);
+        
+        while (game_start) {
+            // new back buffer
+            pixel_buffer_start = *pixel_back_buffer_ptr; 
+            
+            // erase the previous cursor
+            draw_cursor(
+                    buffers[current_buffer_number].cursor_x, 
+                    buffers[current_buffer_number].cursor_y, 
+                    true, 
+                    *(buffers[current_buffer_number].buffer_ptr)
+            );
+            
+            // draw connection if there is any
+            if (draw_connection) {
+                // Draw the next pixel
+                int x, y;
+                for (int i = 0; i < SQUARE_SIZE / 2; ++i) {
+                    --connect_line_index;
+                    x = connect_pixels[connect_line_index] & 0xFFFF;
+                    y = connect_pixels[connect_line_index] >> 16;
+                    plot_pixel_with_buffer(SDRAM_BASE, x, y, connection_color);
+                    plot_pixel_with_buffer(FPGA_ONCHIP_BASE, x, y, connection_color);
+                }
+                
+                // If the line is complete, erase both the line and the box
+                if (connect_line_index == 0) {
+                    for (int i = 0; i < connect_line_num_pixels; ++i) {
+                        x = connect_pixels[i] & 0xFFFF;
+                        y = connect_pixels[i] >> 16;
+                        plot_pixel_with_buffer(SDRAM_BASE, x, y, COLOR_BLACK);
+                        plot_pixel_with_buffer(FPGA_ONCHIP_BASE, x, y, COLOR_BLACK);
+                    }
+                    remove_block(match1_r, match1_c);
+                    remove_block(match2_r, match2_c);
+                    // Reset connection settings
+                    draw_connection = false;
+                    num_remaining_blocks -= 2;
+                }
+            }
+            
+            // draw the new cursor
+            draw_cursor(mouse_x, mouse_y, false, *(buffers[current_buffer_number].buffer_ptr));
+            
+            // update the cursor info
+            buffers[current_buffer_number].cursor_x = mouse_x;
+            buffers[current_buffer_number].cursor_y = mouse_y;
+            
+            // Write a one to the front buffer to turn on status flag S
+            *pixel_front_buffer_ptr = 1;
+            
+            // poll the status register. if the flag is still on, wait
+            wait_for_vsync();
+        }
     }
+    
 }

@@ -1,10 +1,11 @@
 void init_buffer(void) {
     // initialize everything to black
-    for (int i = 0; i < SCREEN_WIDTH; ++i) {
-        for (int j = 0; j < SCREEN_HEIGHT; ++j) {
-            buffer[i][j] = COLOR_BLACK;
-        }
-    }
+    memset(buffer, 0x0, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(short int));
+//    for (int i = 0; i < SCREEN_WIDTH; ++i) {
+//        for (int j = 0; j < SCREEN_HEIGHT; ++j) {
+//            buffer[i][j] = COLOR_BLACK;
+//        }
+//    }
     
     // Initialize the timer to green
     for (int i = TIMER_LEFT; i < TIMER_RIGHT; ++i) {
@@ -26,11 +27,30 @@ void init_buffer(void) {
 }
 
 void init_load_buffer(void) {
+    short int color;
+    // Loading screen
     for (int x = 0; x < SCREEN_WIDTH; ++x) {
         for (int y = 0; y < SCREEN_HEIGHT; ++y) {
-            short int color = (loading_mif[y][x * 2] << 8) | (loading_mif[y][x * 2 + 1]);
-            load_buffer[x][y] = color;
-            plot_pixel_with_buffer(buffers[2].buffer_addr, x, y, color);
+            color = (loading_mif[y][x * 2] << 8) | (loading_mif[y][x * 2 + 1]);
+            load_buffer[x][y] = ~color;
+            plot_pixel_with_buffer(buffers[2].buffer_addr, x, y, ~color);
+        }
+    }
+    // Win screen
+    for (int x = 0; x < SCREEN_WIDTH; ++x) {
+        for (int y = 0; y < SCREEN_HEIGHT; ++y) {
+            color = (win_mif[y][x * 2] << 8) | (win_mif[y][x * 2 + 1]);
+            win_buffer[x][y] = ~color;
+            plot_pixel_with_buffer(buffers[3].buffer_addr, x, y, ~color);
+        }
+    }
+    
+    // Lose screen
+    for (int x = 0; x < SCREEN_WIDTH; ++x) {
+        for (int y = 0; y < SCREEN_HEIGHT; ++y) {
+            color = (lose_mif[y][x * 2] << 8) | (lose_mif[y][x * 2 + 1]);
+            lose_buffer[x][y] = ~color;
+            plot_pixel_with_buffer(buffers[4].buffer_addr, x, y, ~color);
         }
     }
 }

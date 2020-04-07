@@ -4,7 +4,7 @@ void vga_init(int id1, int id2) {
     *pixel_back_buffer_ptr = buffers[id1].buffer_addr;
     // Clear back buffer
     pixel_buffer_start = *pixel_back_buffer_ptr; // point to the back buffer
-    draw_buffer();
+    draw_buffer(id1);
     // Write a one to the front buffer to turn on status flag S
     *pixel_front_buffer_ptr = 0x1;
     // Wait for swap
@@ -14,7 +14,7 @@ void vga_init(int id1, int id2) {
     *pixel_back_buffer_ptr = buffers[id2].buffer_addr;
     // Clear front buffer
     pixel_buffer_start = *pixel_back_buffer_ptr; // point to the back buffer
-    draw_buffer();
+    draw_buffer(id2);
     // Write a one to the front buffer to turn on status flag S
     *pixel_front_buffer_ptr = 0x1;
     // Wait for swap
@@ -100,14 +100,10 @@ void clear_screen(void) {
 }
 
 /* draw buffer */
-void draw_buffer(void) {
+void draw_buffer(int buffer_id) {
     for (int x = 0; x < SCREEN_WIDTH; ++x) {
         for (int y = 0; y < SCREEN_HEIGHT; ++y) {
-            if (current_buffer_number == 2) {
-                plot_pixel(x, y, load_buffer[x][y]);
-            } else {
-                plot_pixel(x, y, buffer[x][y]);
-            }
+            plot_pixel(x, y, (*buffers[buffer_id].buffer_ptr)[x][y]);
         }
     }
 }

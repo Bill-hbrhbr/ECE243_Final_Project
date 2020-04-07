@@ -72,6 +72,11 @@ void mouse_isr(void) {
     if (clicked && !game_start) {
         // start the game
         game_start = true;
+        // Start the timer
+        play_time = 0;
+        timer_pos = TIMER_BOT;
+        // Start the count
+        num_remaining_blocks = NUM_ROWS * NUM_COLS;
     }
     else if (clicked && !last_clicked && !draw_connection) {
         int r, c;

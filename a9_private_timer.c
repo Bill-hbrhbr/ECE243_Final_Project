@@ -9,16 +9,22 @@ void timer_isr(void) {
     // if the game hasn't started, do not perform anything
     if (!game_start) {
         return;
-    } else {
-        // Start the timer
-        play_time = 0;
     }
     
     play_time += TIME_DIV;
-    if (play_time == GAME_TIME) {
-        *timer_ctrl_ptr = 0; // clear all signals
+    // Won the game
+    if (!num_remaining_blocks) {
+        game_start = false;
+        current_buffer_number = 3;
+        return;
+    } 
+    // lost the game
+    else if (play_time >= GAME_TIME) {
+        game_start = false;
+        current_buffer_number = 4;
         return;
     }
+    
     // Update buffers
     --timer_pos;
     for (int i = TIMER_LEFT; i < TIMER_RIGHT; ++i) {
