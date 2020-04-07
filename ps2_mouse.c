@@ -8,12 +8,11 @@ void mouse_isr(void) {
     data_valid = ps2_data & 0x8000;
     
     // if the data is valid, update the bytes
-    if (!data_valid) {
-        return;
+    if (data_valid) {
+        mouse_byte1 = mouse_byte2;
+        mouse_byte2 = mouse_byte3;
+        mouse_byte3 = ps2_data & 0xFF;
     }
-    mouse_byte1 = mouse_byte2;
-    mouse_byte2 = mouse_byte3;
-    mouse_byte3 = ps2_data & 0xFF;
     
     // If the mouse is inactive, make it send data
     if (!run_mouse && mouse_byte2 == 0xAA && mouse_byte3 == 0x00) {
@@ -27,6 +26,12 @@ void mouse_isr(void) {
     
     // If the 3-byte packet is not complete, do not perform analysis
     if (mouse_byte_num) {
+        return;
+    }
+    
+    // If mouse_byte1 doesn't satisfy the pattern, do not perform analysis
+    if (!(mouse_byte1 & 0x08) || (mouse_byte1 & 0x06)) {
+        mouse_byte_num = 2;
         return;
     }
     
