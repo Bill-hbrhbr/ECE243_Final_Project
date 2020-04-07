@@ -154,11 +154,16 @@ typedef struct node {
     unsigned distance;
 } Node;
 Node priority_queue[DIJKSTRA_SIZE];
-//bool processed[DIJKSTRA_SIZE];
 int backtrack[DIJKSTRA_SIZE];
 unsigned int best_distances[DIJKSTRA_SIZE];
 bool vacant[DIJKSTRA_SIZE];
 int queue_size;
+
+// Draw connection lines
+bool draw_connection = false;
+short int connection_color = COLOR_BLACK;
+int connect_line_index, connect_line_num_pixels, match1_r, match1_c, match2_r, match2_c;
+unsigned int connect_pixels[10000];
 
 // Prototypes
 void init_buffer(void);
@@ -193,6 +198,8 @@ void draw_cursor(int left, int top, bool erase);
 bool find_path(int src_row, int src_col, int dest_row, int dest_col);
 inline int get_dijkstra_id(int r, int c);
 void pq_insert(int node_id, int src_id, unsigned int new_dist);
+void calculate_backtrack(void);
+
 unsigned char cursor_mif[CURSOR_SIZE][CURSOR_SIZE * 2] =
 {
     /*Pixel format: Red: 5 bit, Green: 6 bit, Blue: 5 bit*/
@@ -246,6 +253,33 @@ int main(void) {
         
         // erase the previous cursor
         draw_cursor(cursor_info[current_buffer_number].x, cursor_info[current_buffer_number].y, true);
+        
+        // draw connection if there is any
+        if (draw_connection) {
+            // Draw the next pixel
+            int x, y;
+            for (int i = 0; i < 15; ++i) {
+                --connect_line_index;
+                x = connect_pixels[connect_line_index] & 0xFFFF;
+                y = connect_pixels[connect_line_index] >> 16;
+                plot_pixel_with_buffer(SDRAM_BASE, x, y, connection_color);
+                plot_pixel_with_buffer(FPGA_ONCHIP_BASE, x, y, connection_color);
+            }
+            
+            // If the line is complete, erase both the line and the box
+            if (connect_line_index == 0) {
+                for (int i = 0; i < connect_line_num_pixels; ++i) {
+                    x = connect_pixels[i] & 0xFFFF;
+                    y = connect_pixels[i] >> 16;
+                    plot_pixel_with_buffer(SDRAM_BASE, x, y, COLOR_BLACK);
+                    plot_pixel_with_buffer(FPGA_ONCHIP_BASE, x, y, COLOR_BLACK);
+                }
+                remove_block(match1_r, match1_c);
+                remove_block(match2_r, match2_c);
+                // Reset connection settings
+                draw_connection = false;
+            }
+        }
         
         // draw the new cursor
         draw_cursor(mouse_x, mouse_y, false);
@@ -435,15 +469,14 @@ void mouse_isr(void) {
     data_valid = ps2_data & 0x8000;
     
     // if the data is valid, update the bytes
-    if (!data_valid) {
-        return;
+    if (data_valid) {
+        mouse_byte1 = mouse_byte2;
+        mouse_byte2 = mouse_byte3;
+        mouse_byte3 = ps2_data & 0xFF;
     }
-    mouse_byte1 = mouse_byte2;
-    mouse_byte2 = mouse_byte3;
-    mouse_byte3 = ps2_data & 0xFF;
     
     // If the mouse is inactive, make it send data
-    if (!run_mouse && ouse_byte2 == 0xAA && mouse_byte3 == 0x00) {
+    if (!run_mouse && mouse_byte2 == 0xAA && mouse_byte3 == 0x00) {
         *ps2_ptr = 0xF4; // send data command
         mouse_byte_num = 0;
         run_mouse = true;
@@ -454,6 +487,12 @@ void mouse_isr(void) {
     
     // If the 3-byte packet is not complete, do not perform analysis
     if (mouse_byte_num) {
+        return;
+    }
+    
+    // If mouse_byte1 doesn't satisfy the pattern, do not perform analysis
+    if (!(mouse_byte1 & 0x08) || (mouse_byte1 & 0x06)) {
+        mouse_byte_num = 2;
         return;
     }
     
@@ -491,7 +530,7 @@ void mouse_isr(void) {
     // check if the left button is clicked on an object
     bool clicked = (bool) (mouse_byte1 & 0x1);
     // Edge-triggered rather than level sensitive
-    if (clicked && !last_clicked) {
+    if (clicked && !last_clicked && !draw_connection) {
         int r, c;
         bool click_valid = get_clicked_tile(&r, &c);
         if (click_valid) {
@@ -541,9 +580,18 @@ void update_grid_status(int r, int c) {
     if (s[clicked_row][clicked_col].color == s[r][c].color &&
         find_path(clicked_row, clicked_col, r, c)) 
     {
-        // get rid of the boxes
-        remove_block(clicked_row, clicked_col);
-        remove_block(r, c);
+        // update status variables of the block
+        s[r][c].active = false;
+        s[r][c].exposed = false;
+        s[clicked_row][clicked_col].active = false;
+        s[clicked_row][clicked_col].exposed = false;
+        // record the boxes
+        match1_r = clicked_row;
+        match1_c = clicked_col;
+        match2_r = r;
+        match2_c = c;
+        // Calculate the connection path
+        calculate_backtrack();
         // Update the global variables to default
         clicked_row = -1;
         clicked_col = -1;
@@ -596,9 +644,6 @@ void mark_selection(int r, int c, short int color) {
 
 // Remove a box from the screen
 void remove_block(int r, int c) {
-    // update status variables of the block
-    s[r][c].active = false;
-    s[r][c].exposed = false;
     // Get the topleft corner of the block
     int block_left = grid_left + c * SQUARE_SIZE;
     int block_top = grid_top + r * SQUARE_SIZE;
@@ -612,6 +657,45 @@ void remove_block(int r, int c) {
     }
     // Update the vacant matrix
     vacant[get_dijkstra_id(r, c)] = true;
+}
+
+// Calculate the connection path
+void calculate_backtrack(void) {
+    draw_connection = true;
+    connection_color = s[match1_r][match1_c].color;
+    connect_line_num_pixels = 0;
+    // Start backtracking
+    int id1 = get_dijkstra_id(match2_r, match2_c), id2;
+    int r = match2_r + 1, c = match2_c + 1;
+    int x1, y1, x2, y2, delta;
+    x1 = grid_left + c * SQUARE_SIZE - SQUARE_SIZE / 2;
+    y1 = grid_top + r * SQUARE_SIZE - SQUARE_SIZE / 2;
+    while (id1 != -1) {
+        id2 = backtrack[id1];
+        // get new block indices
+        r = id2 / (NUM_COLS + 2);
+        c = id2 - r * (NUM_COLS + 2);
+        // Get the x, y position
+        x2 = grid_left + c * SQUARE_SIZE - SQUARE_SIZE / 2;
+        y2 = grid_top + r * SQUARE_SIZE - SQUARE_SIZE / 2;
+        if (x1 == x2) {
+            delta = (y1 < y2) ? 1 : -1;
+            for (int y = y1; y != y2; y += delta) {
+                connect_pixels[connect_line_num_pixels++] = (y << 16) | x1;
+            }
+        } else if (y1 == y2) {
+            delta = (x1 < x2) ? 1 : -1;
+            for (int x = x1; x != x2; x += delta) {
+                connect_pixels[connect_line_num_pixels++] = (y1 << 16) | x;
+            }
+        }
+        // Update x and y
+        x1 = x2;
+        y1 = y2;
+        id1 = id2;
+    }
+    // Start drawing from the end
+    connect_line_index = connect_line_num_pixels;
 }
 
 // Define the IRQ exception handler
@@ -816,20 +900,36 @@ bool find_path(int src_row, int src_col, int dest_row, int dest_col) {
     best_distances[best_node_id] = 0;
     //processed[best_node_id] = true;
     
-    while (best_node_id != dest_node_id) {
+    while (true) {
         int left = best_node_id - 1, right = best_node_id + 1;
         int up = best_node_id - (NUM_COLS + 2), down = best_node_id + (NUM_COLS + 2);
         
         // Extend the best_node_id in all 4 directions
-        if (left == dest_node_id || right == dest_node_id || up == dest_node_id || down == dest_node_id) {
+        // up or down
+        if (up == dest_node_id || down == dest_node_id) {
             backtrack[dest_node_id] = best_node_id;
             return true;
         }
-        
-        pq_insert(left, best_node_id, best_dist + 1); // left
-        pq_insert(right, best_node_id, best_dist + 1); // right
         pq_insert(up, best_node_id, best_dist + 1); // up
         pq_insert(down, best_node_id, best_dist + 1); // down
+        
+        // left
+        if (best_node_id % (NUM_COLS + 2)) {
+            if (left == dest_node_id) {
+                backtrack[dest_node_id] = best_node_id;
+                return true;
+            }
+            pq_insert(left, best_node_id, best_dist + 1);
+        }
+        
+        // right
+        if (right % (NUM_COLS + 2)) {
+            if (right == dest_node_id) {
+                backtrack[dest_node_id] = best_node_id;
+                return true;
+            }
+            pq_insert(right, best_node_id, best_dist + 1);
+        }
         
         // Check the best element in the priority queue
         while (queue_size > 0) {
@@ -851,6 +951,7 @@ bool find_path(int src_row, int src_col, int dest_row, int dest_col) {
         best_node_id = priority_queue[queue_size].index;
         best_dist = priority_queue[queue_size].distance;
     }
+    return true;
 }
 
 // Return the dijkstra queue index given a row and a col

@@ -30,20 +30,36 @@ bool find_path(int src_row, int src_col, int dest_row, int dest_col) {
     best_distances[best_node_id] = 0;
     //processed[best_node_id] = true;
     
-    while (best_node_id != dest_node_id) {
+    while (true) {
         int left = best_node_id - 1, right = best_node_id + 1;
         int up = best_node_id - (NUM_COLS + 2), down = best_node_id + (NUM_COLS + 2);
         
         // Extend the best_node_id in all 4 directions
-        if (left == dest_node_id || right == dest_node_id || up == dest_node_id || down == dest_node_id) {
+        // up or down
+        if (up == dest_node_id || down == dest_node_id) {
             backtrack[dest_node_id] = best_node_id;
             return true;
         }
-        
-        pq_insert(left, best_node_id, best_dist + 1); // left
-        pq_insert(right, best_node_id, best_dist + 1); // right
         pq_insert(up, best_node_id, best_dist + 1); // up
         pq_insert(down, best_node_id, best_dist + 1); // down
+        
+        // left
+        if (best_node_id % (NUM_COLS + 2)) {
+            if (left == dest_node_id) {
+                backtrack[dest_node_id] = best_node_id;
+                return true;
+            }
+            pq_insert(left, best_node_id, best_dist + 1);
+        }
+        
+        // right
+        if (right % (NUM_COLS + 2)) {
+            if (right == dest_node_id) {
+                backtrack[dest_node_id] = best_node_id;
+                return true;
+            }
+            pq_insert(right, best_node_id, best_dist + 1);
+        }
         
         // Check the best element in the priority queue
         while (queue_size > 0) {

@@ -154,11 +154,16 @@ typedef struct node {
     unsigned distance;
 } Node;
 Node priority_queue[DIJKSTRA_SIZE];
-//bool processed[DIJKSTRA_SIZE];
 int backtrack[DIJKSTRA_SIZE];
 unsigned int best_distances[DIJKSTRA_SIZE];
 bool vacant[DIJKSTRA_SIZE];
 int queue_size;
+
+// Draw connection lines
+bool draw_connection = false;
+short int connection_color = COLOR_BLACK;
+int connect_line_index, connect_line_num_pixels, match1_r, match1_c, match2_r, match2_c;
+unsigned int connect_pixels[10000];
 
 // Prototypes
 void init_buffer(void);
@@ -193,6 +198,7 @@ void draw_cursor(int left, int top, bool erase);
 bool find_path(int src_row, int src_col, int dest_row, int dest_col);
 inline int get_dijkstra_id(int r, int c);
 void pq_insert(int node_id, int src_id, unsigned int new_dist);
+void calculate_backtrack(void);
 
 int main(void) {
     // Seed random engine
@@ -222,6 +228,33 @@ int main(void) {
         
         // erase the previous cursor
         draw_cursor(cursor_info[current_buffer_number].x, cursor_info[current_buffer_number].y, true);
+        
+        // draw connection if there is any
+        if (draw_connection) {
+            // Draw the next pixel
+            int x, y;
+            for (int i = 0; i < 15; ++i) {
+                --connect_line_index;
+                x = connect_pixels[connect_line_index] & 0xFFFF;
+                y = connect_pixels[connect_line_index] >> 16;
+                plot_pixel_with_buffer(SDRAM_BASE, x, y, connection_color);
+                plot_pixel_with_buffer(FPGA_ONCHIP_BASE, x, y, connection_color);
+            }
+            
+            // If the line is complete, erase both the line and the box
+            if (connect_line_index == 0) {
+                for (int i = 0; i < connect_line_num_pixels; ++i) {
+                    x = connect_pixels[i] & 0xFFFF;
+                    y = connect_pixels[i] >> 16;
+                    plot_pixel_with_buffer(SDRAM_BASE, x, y, COLOR_BLACK);
+                    plot_pixel_with_buffer(FPGA_ONCHIP_BASE, x, y, COLOR_BLACK);
+                }
+                remove_block(match1_r, match1_c);
+                remove_block(match2_r, match2_c);
+                // Reset connection settings
+                draw_connection = false;
+            }
+        }
         
         // draw the new cursor
         draw_cursor(mouse_x, mouse_y, false);
