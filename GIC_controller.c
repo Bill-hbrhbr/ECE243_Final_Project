@@ -4,7 +4,10 @@
 void config_GIC(void) {
     
     // configure the PS2 port (Interrupt ID = 79)
-    config_interrupt (PS2_IRQ, CPU0); 
+    config_interrupt(PS2_IRQ, CPU0);
+    
+    // configure the A9 Private timer (Interrupt ID = 29)
+    config_interrupt(MPCORE_PRIV_TIMER_IRQ, CPU0);
     
     // Set Interrupt Priority Mask Register (ICCPMR). Enable interrupts of all priorities
     *((int *) MPCORE_GIC_CPUIF + ICCICR) = 0xFFFF;
@@ -57,4 +60,19 @@ void config_ps2_mouse() {
     // Enable the ps2 interrupt
     volatile int *ps2_status_ptr = (int *) (PS2_BASE + 0x4);
     *ps2_status_ptr = 0x1;
+}
+
+// Configure the timer interrupt
+void config_private_timer() {
+    volatile int *timer_base_ptr = (int *) MPCORE_PRIV_TIMER;
+    volatile int *timer_load_ptr = timer_base_ptr;
+    volatile int *timer_ctrl_ptr = timer_base_ptr + 0x2;
+    volatile int *timer_acknowledge_ptr = timer_base_ptr + 0x3;
+    
+    // Load the private timer value, 0.25s per interrupt
+    *timer_load_ptr = TIMER_LOAD_VAL;
+    // Turn on auto and interrupt enable
+    *timer_ctrl_ptr = 0x7;
+    // Clear interrupt register
+    *timer_acknowledge_ptr = 0x1;
 }

@@ -89,6 +89,16 @@
 #define NUM_BUFFERS           2
 #define CURSOR_SIZE           20
 #define SELECT_WIDTH          2
+#define GAME_TIME             70  /* in seconds */
+#define TIMER_LOAD_VAL        100000000 /* 0.5s per interrupt */
+#define TIME_DIV              0.5
+#define TIMER_TOP             70
+#define TIMER_BOT             210
+#define TIMER_LEFT            285
+#define TIMER_RIGHT           295
+#define TIMER_ICON_LEFT       270
+#define TIMER_ICON_TOP        30
+#define TIMER_ICON_SIZE       40
 
 /* Game status */
 #define START                 0x1
@@ -144,9 +154,11 @@ volatile int* pixel_back_buffer_ptr = (int *) (PIXEL_BUF_CTRL_BASE + 0x4);
 volatile int* pixel_resolution_ptr = (int *) (PIXEL_BUF_CTRL_BASE + 0x8);
 volatile int* pixel_status_ptr = (int *) (PIXEL_BUF_CTRL_BASE + 0xC);
 int mouse_x = 160, mouse_y = 120, mouse_byte_num = 0;
-const int grid_left = 30, grid_top = 30;
+const int grid_left = 20, grid_top = 30;
 bool last_clicked = false, run_mouse = false;
 int clicked_row = -1, clicked_col = -1;
+double play_time = 0;
+int timer_pos = TIMER_BOT;
 
 // Dijkstra global variables
 #define DIJKSTRA_SIZE ((NUM_ROWS + 2) * (NUM_COLS + 2))
@@ -175,13 +187,16 @@ void init_dijkstra(void);
 
 void config_GIC(void);
 void config_interrupt (int N, int CPU_target);
-void config_ps2_mouse();
+void config_ps2_mouse(void);
+void config_private_timer(void);
 
 void mouse_isr(void);
 bool get_clicked_tile(int *r, int *c);
 void update_grid_status(int r, int c);
 void mark_selection(int r, int c, short int color);
 void remove_block(int r, int c);
+
+void timer_isr(void);
 
 void __cs3_isr_irq(void);
 void init_IRQ(void);

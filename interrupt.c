@@ -23,6 +23,8 @@ void __cs3_isr_irq(void) {
     switch (interrupt_id) {
         // PS2 Mouse
         case PS2_IRQ: mouse_isr(); break;
+        // A9 Private Timer
+        case MPCORE_PRIV_TIMER_IRQ: timer_isr(); break;
         // Unexpected: stop here
         default: 
             while (1)

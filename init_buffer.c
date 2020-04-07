@@ -6,6 +6,24 @@ void init_buffer(void) {
         }
     }
     
+    // Initialize the timer to green
+    for (int i = TIMER_LEFT; i < TIMER_RIGHT; ++i) {
+        for (int j = TIMER_TOP; j < TIMER_BOT; ++j) {
+            buffer[i][j] = COLOR_GREEN;
+        }
+    }
+    
+    // draw timer icon
+    for (int x = 0; x < TIMER_ICON_SIZE; ++x) {
+        for (int y = 0; y < TIMER_ICON_SIZE; ++y) {
+            short int color = (timer_mif[y][x * 2] << 8) | (timer_mif[y][x * 2 + 1]);
+            if (color == 0x1F00) {
+                color = 0xFFFF;
+            }
+            buffer[x + TIMER_ICON_LEFT][y + TIMER_ICON_TOP] = ~color;
+        }
+    }
+    
     // set initial buffer number
     current_buffer_number = 0;
 }
@@ -67,7 +85,7 @@ void init_blocks(void) {
         }
         if (odd_colors == 2) {
             // replace a block of the first color with the second color
-            Square *p = (Node*) s;
+            Square *p = (Square*) s;
             for (int i = 0; i < NUM_ROWS * NUM_COLS; ++i) {
                 if (p[i].color == first) {
                     p[i].color = second;
