@@ -110,6 +110,7 @@
 
 short int colors[NUM_COLORS] = {COLOR_BLUE, COLOR_RED, COLOR_GREEN, COLOR_PINK, COLOR_YELLOW, COLOR_ORANGE, COLOR_CYAN, COLOR_GREY};
 
+#include "stdio.h"
 #include "stdlib.h"
 #include "stdbool.h"
 #include "math.h"
@@ -166,6 +167,7 @@ int connect_line_index, connect_line_num_pixels, match1_r, match1_c, match2_r, m
 unsigned int connect_pixels[10000];
 
 // Prototypes
+void *memset(void *str, int c, size_t n);
 void init_buffer(void);
 void init_blocks(void);
 void init_cursors(void);
@@ -233,7 +235,7 @@ int main(void) {
         if (draw_connection) {
             // Draw the next pixel
             int x, y;
-            for (int i = 0; i < 15; ++i) {
+            for (int i = 0; i < SQUARE_SIZE / 2; ++i) {
                 --connect_line_index;
                 x = connect_pixels[connect_line_index] & 0xFFFF;
                 y = connect_pixels[connect_line_index] >> 16;

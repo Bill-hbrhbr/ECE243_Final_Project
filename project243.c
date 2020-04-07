@@ -110,6 +110,7 @@
 
 short int colors[NUM_COLORS] = {COLOR_BLUE, COLOR_RED, COLOR_GREEN, COLOR_PINK, COLOR_YELLOW, COLOR_ORANGE, COLOR_CYAN, COLOR_GREY};
 
+#include "stdio.h"
 #include "stdlib.h"
 #include "stdbool.h"
 #include "math.h"
@@ -258,7 +259,7 @@ int main(void) {
         if (draw_connection) {
             // Draw the next pixel
             int x, y;
-            for (int i = 0; i < 15; ++i) {
+            for (int i = 0; i < SQUARE_SIZE / 2; ++i) {
                 --connect_line_index;
                 x = connect_pixels[connect_line_index] & 0xFFFF;
                 y = connect_pixels[connect_line_index] >> 16;
@@ -317,6 +318,7 @@ void init_blocks(void) {
     }
     
     // Initialize all blocks
+    int color_count[NUM_COLORS] = {0}; // keep track of color count
     for (int i = 0; i < NUM_ROWS; ++i) {
         for (int j = 0; j < NUM_COLS; ++j) {
             // Get a random color
@@ -340,6 +342,7 @@ void init_blocks(void) {
                 }
             }
             s[i][j].color = colors[color_choice];
+            ++color_count[color_choice];
             
             // Intialize position
             s[i][j].left = grid_left + i * SQUARE_SIZE;
@@ -347,11 +350,30 @@ void init_blocks(void) {
             
             // Intialize status
             s[i][j].active = true;
-            if (i == 0 || i == NUM_ROWS - 1 || j == 0 || j == NUM_COLS - 1) {
-                s[i][j].exposed = true;
-            } else {
-                s[i][j].exposed = false;
+        }
+    }
+    
+    // Get rid of odd numbered colors
+    int odd_colors = 0;
+    short int first, second;
+    for (int i = 0; i < NUM_COLORS; ++i) {
+        if (color_count[i] & 0x1) {
+            ++odd_colors;
+            first = second;
+            second = colors[i];
+        } else {
+            continue;
+        }
+        if (odd_colors == 2) {
+            // replace a block of the first color with the second color
+            Square *p = (Node*) s;
+            for (int i = 0; i < NUM_ROWS * NUM_COLS; ++i) {
+                if (p[i].color == first) {
+                    p[i].color = second;
+                    break;
+                }
             }
+            odd_colors = 0;
         }
     }
     
