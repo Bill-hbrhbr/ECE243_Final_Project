@@ -214,7 +214,7 @@ void swap(int *x, int *y);
 void draw_line(int x0, int y0, int x1, int y1, short int line_color);
 void clear_screen(void);
 void draw_buffer(void);
-void draw_cursor(int left, int top, bool erase, int target_buffer[SCREEN_WIDTH][SCREEN_HEIGHT]);
+void draw_cursor(int left, int top, bool erase, short int target_buffer[SCREEN_WIDTH][SCREEN_HEIGHT]);
 
 bool find_path(int src_row, int src_col, int dest_row, int dest_col);
 inline int get_dijkstra_id(int r, int c);
@@ -541,7 +541,7 @@ int main(void) {
     // Initialize buffer address
     buffers[0].buffer_addr = FPGA_ONCHIP_BASE;
     buffers[1].buffer_addr = SDRAM_BASE;
-    buffers[2].buffer_addr = SDRAM_BASE + 0x10000;
+    buffers[2].buffer_addr = SDRAM_BASE + 0x0800;
     
     // Initialize buffer cursors
     init_cursors();
@@ -1303,7 +1303,7 @@ void draw_buffer(void) {
 }
 
 /* draw cursor */
-void draw_cursor(int left, int top, bool erase, int target_buffer[SCREEN_WIDTH][SCREEN_HEIGHT]) {
+void draw_cursor(int left, int top, bool erase, short int target_buffer[SCREEN_WIDTH][SCREEN_HEIGHT]) {
     short int color;
     for (int x = 0; x < CURSOR_SIZE; ++x) {
         for (int y = 0; y < CURSOR_SIZE; ++y) {

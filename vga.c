@@ -113,7 +113,7 @@ void draw_buffer(void) {
 }
 
 /* draw cursor */
-void draw_cursor(int left, int top, bool erase, int target_buffer[SCREEN_WIDTH][SCREEN_HEIGHT]) {
+void draw_cursor(int left, int top, bool erase, short int target_buffer[SCREEN_WIDTH][SCREEN_HEIGHT]) {
     short int color;
     for (int x = 0; x < CURSOR_SIZE; ++x) {
         for (int y = 0; y < CURSOR_SIZE; ++y) {
