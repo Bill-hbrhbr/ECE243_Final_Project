@@ -1,5 +1,3 @@
-/* This files provides address values that exist in the system */
-
 #define BOARD                 "DE1-SoC"
 
 /* Memory */
@@ -146,13 +144,27 @@ volatile int* pixel_resolution_ptr = (int *) (PIXEL_BUF_CTRL_BASE + 0x8);
 volatile int* pixel_status_ptr = (int *) (PIXEL_BUF_CTRL_BASE + 0xC);
 int mouse_x = 160, mouse_y = 120, mouse_byte_num = 0;
 const int grid_left = 30, grid_top = 30;
-bool last_clicked = false;
+bool last_clicked = false, run_mouse = false;
 int clicked_row = -1, clicked_col = -1;
+
+// Dijkstra global variables
+#define DIJKSTRA_SIZE ((NUM_ROWS + 2) * (NUM_COLS + 2))
+typedef struct node {
+    int index;
+    unsigned distance;
+} Node;
+Node priority_queue[DIJKSTRA_SIZE];
+//bool processed[DIJKSTRA_SIZE];
+int backtrack[DIJKSTRA_SIZE];
+unsigned int best_distances[DIJKSTRA_SIZE];
+bool vacant[DIJKSTRA_SIZE];
+int queue_size;
 
 // Prototypes
 void init_buffer(void);
 void init_blocks(void);
 void init_cursors(void);
+void init_dijkstra(void);
 
 void config_GIC(void);
 void config_interrupt (int N, int CPU_target);
@@ -178,6 +190,9 @@ void clear_screen(void);
 void draw_buffer(void);
 void draw_cursor(int left, int top, bool erase);
 
+bool find_path(int src_row, int src_col, int dest_row, int dest_col);
+inline int get_dijkstra_id(int r, int c);
+void pq_insert(int node_id, int src_id, unsigned int new_dist);
 unsigned char cursor_mif[CURSOR_SIZE][CURSOR_SIZE * 2] =
 {
     /*Pixel format: Red: 5 bit, Green: 6 bit, Blue: 5 bit*/
@@ -215,6 +230,9 @@ int main(void) {
     
     // Initialize buffer cursors
     init_cursors();
+    
+    // Initialize dijkstra global variables
+    init_dijkstra();
     
     // intialize interrupt services
     init_IRQ();
@@ -323,6 +341,29 @@ void init_cursors(void) {
     }
 }
 
+void init_dijkstra(void) {
+    // Set all vacancy to false
+    memset(vacant, false, DIJKSTRA_SIZE * sizeof(bool));
+    // Set all the border boxes to true
+    int r, c;
+    // Left
+    for (r = 0, c = 0; r < NUM_ROWS + 2; ++r) {
+        vacant[r * (NUM_COLS + 2) + c] = true;
+    }
+    // Right
+    for (r = 0, c = NUM_COLS + 1; r < NUM_ROWS + 2; ++r) {
+        vacant[r * (NUM_COLS + 2) + c] = true;
+    }
+    // Top
+    for (r = 0, c = 0; c < NUM_COLS + 2; ++c) {
+        vacant[r * (NUM_COLS + 2) + c] = true;
+    }
+    // Bottom
+    for (r = NUM_ROWS + 1, c = 0; c < NUM_COLS + 2; ++c) {
+        vacant[r * (NUM_COLS + 2) + c] = true;
+    }
+}
+
 /*
 * Configure the Generic Interrupt Controller (GIC)
 */
@@ -402,9 +443,10 @@ void mouse_isr(void) {
     mouse_byte3 = ps2_data & 0xFF;
     
     // If the mouse is inactive, make it send data
-    if (mouse_byte2 == 0xAA && mouse_byte3 == 0x00) {
+    if (!run_mouse && ouse_byte2 == 0xAA && mouse_byte3 == 0x00) {
         *ps2_ptr = 0xF4; // send data command
         mouse_byte_num = 0;
+        run_mouse = true;
         return;
     } else {
         mouse_byte_num = (mouse_byte_num + 1) % 3;
@@ -495,14 +537,10 @@ void update_grid_status(int r, int c) {
         clicked_col = c;
         return;
     }
-    // Color matches the last selection and both blocks are exposed: elinminate
+    // Color matches the last selection and both blocks are connected
     if (s[clicked_row][clicked_col].color == s[r][c].color &&
-        s[clicked_row][clicked_col].exposed && s[r][c].exposed) {
-        // update status variables of both blocks
-        s[clicked_row][clicked_col].active = false;
-        s[clicked_row][clicked_col].exposed = false;
-        s[r][c].active = false;
-        s[r][c].exposed = false;
+        find_path(clicked_row, clicked_col, r, c)) 
+    {
         // get rid of the boxes
         remove_block(clicked_row, clicked_col);
         remove_block(r, c);
@@ -558,9 +596,13 @@ void mark_selection(int r, int c, short int color) {
 
 // Remove a box from the screen
 void remove_block(int r, int c) {
+    // update status variables of the block
+    s[r][c].active = false;
+    s[r][c].exposed = false;
     // Get the topleft corner of the block
     int block_left = grid_left + c * SQUARE_SIZE;
     int block_top = grid_top + r * SQUARE_SIZE;
+    // Update buffers
     for (int x = 0; x < SQUARE_SIZE; ++x) {
         for (int y = 0; y < SQUARE_SIZE; ++y) {
             buffer[block_left + x][block_top + y] = COLOR_BLACK;
@@ -568,6 +610,8 @@ void remove_block(int r, int c) {
             plot_pixel_with_buffer(FPGA_ONCHIP_BASE, block_left + x, block_top + y, COLOR_BLACK);
         }
     }
+    // Update the vacant matrix
+    vacant[get_dijkstra_id(r, c)] = true;
 }
 
 // Define the IRQ exception handler
@@ -748,6 +792,105 @@ void draw_cursor(int left, int top, bool erase) {
                 // draw a white cursor
                 plot_pixel(vga_x, vga_y, COLOR_WHITE);
             }
+        }
+    }
+}
+
+// Find path between two tiles. Return true if found, false if not
+bool find_path(int src_row, int src_col, int dest_row, int dest_col) {
+    // Clear the processed array: set all to false
+    //memset(processed, false, DIJKSTRA_SIZE * sizeof(bool));
+    // Set the backtrack array to -1
+    memset(backtrack, 0xFF, DIJKSTRA_SIZE * sizeof(int));
+    // Set the best distances to INT_MAX
+    memset(best_distances, 0xFF, DIJKSTRA_SIZE * sizeof(unsigned int));
+    
+    // Set the queue size to 0
+    queue_size = 0;
+    // Get the dijkstra ids of the src and dest positions
+    int best_node_id = get_dijkstra_id(src_row, src_col);
+    int dest_node_id = get_dijkstra_id(dest_row, dest_col);
+    
+    // The best distance so far is 0
+    unsigned int best_dist = 0;
+    best_distances[best_node_id] = 0;
+    //processed[best_node_id] = true;
+    
+    while (best_node_id != dest_node_id) {
+        int left = best_node_id - 1, right = best_node_id + 1;
+        int up = best_node_id - (NUM_COLS + 2), down = best_node_id + (NUM_COLS + 2);
+        
+        // Extend the best_node_id in all 4 directions
+        if (left == dest_node_id || right == dest_node_id || up == dest_node_id || down == dest_node_id) {
+            backtrack[dest_node_id] = best_node_id;
+            return true;
+        }
+        
+        pq_insert(left, best_node_id, best_dist + 1); // left
+        pq_insert(right, best_node_id, best_dist + 1); // right
+        pq_insert(up, best_node_id, best_dist + 1); // up
+        pq_insert(down, best_node_id, best_dist + 1); // down
+        
+        // Check the best element in the priority queue
+        while (queue_size > 0) {
+            // If the node has already been processed, skip
+            if (priority_queue[queue_size - 1].distance > best_distances[priority_queue[queue_size - 1].index]) {
+                --queue_size;
+            } else {
+                break;
+            }
+        }
+        
+        // If empty, then there's no valid path
+        if (queue_size == 0) {
+            return false;
+        }
+        
+        // Update the best node
+        --queue_size;
+        best_node_id = priority_queue[queue_size].index;
+        best_dist = priority_queue[queue_size].distance;
+    }
+}
+
+// Return the dijkstra queue index given a row and a col
+inline int get_dijkstra_id(int r, int c) {
+    return (r + 1) * (NUM_COLS + 2) + c + 1;
+}
+
+// Insert a node into the priority queue
+void pq_insert(int node_id, int src_id, unsigned int new_dist) {
+    // Check if out of bounds
+    if (node_id < 0 || node_id >= DIJKSTRA_SIZE) {
+        return;
+    }
+    // Check if vacant
+    if (!vacant[node_id]) {
+        return;
+    }
+    // Check if the time is longer than already recorded
+    if (best_distances[node_id] < new_dist) {
+        return;
+    }
+
+    // Update the new best distance
+    best_distances[node_id] = new_dist;
+    // Update backtrack list
+    backtrack[node_id] = src_id;
+    
+    // Push into the priority queue
+    priority_queue[queue_size].index = node_id;
+    priority_queue[queue_size].distance = new_dist;
+    ++queue_size;
+    
+    // Correct the order using insertion sort
+    for (int i = queue_size - 1; i > 0; --i) {
+        if (priority_queue[i].distance > priority_queue[i - 1].distance) {
+            Node temp = priority_queue[i];
+            priority_queue[i] = priority_queue[i - 1];
+            priority_queue[i - 1] = temp;
+        } else {
+            break;
         }
     }
 }

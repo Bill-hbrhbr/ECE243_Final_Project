@@ -1,5 +1,3 @@
-/* This files provides address values that exist in the system */
-
 #define BOARD                 "DE1-SoC"
 
 /* Memory */
@@ -146,13 +144,27 @@ volatile int* pixel_resolution_ptr = (int *) (PIXEL_BUF_CTRL_BASE + 0x8);
 volatile int* pixel_status_ptr = (int *) (PIXEL_BUF_CTRL_BASE + 0xC);
 int mouse_x = 160, mouse_y = 120, mouse_byte_num = 0;
 const int grid_left = 30, grid_top = 30;
-bool last_clicked = false;
+bool last_clicked = false, run_mouse = false;
 int clicked_row = -1, clicked_col = -1;
+
+// Dijkstra global variables
+#define DIJKSTRA_SIZE ((NUM_ROWS + 2) * (NUM_COLS + 2))
+typedef struct node {
+    int index;
+    unsigned distance;
+} Node;
+Node priority_queue[DIJKSTRA_SIZE];
+//bool processed[DIJKSTRA_SIZE];
+int backtrack[DIJKSTRA_SIZE];
+unsigned int best_distances[DIJKSTRA_SIZE];
+bool vacant[DIJKSTRA_SIZE];
+int queue_size;
 
 // Prototypes
 void init_buffer(void);
 void init_blocks(void);
 void init_cursors(void);
+void init_dijkstra(void);
 
 void config_GIC(void);
 void config_interrupt (int N, int CPU_target);
@@ -178,6 +190,10 @@ void clear_screen(void);
 void draw_buffer(void);
 void draw_cursor(int left, int top, bool erase);
 
+bool find_path(int src_row, int src_col, int dest_row, int dest_col);
+inline int get_dijkstra_id(int r, int c);
+void pq_insert(int node_id, int src_id, unsigned int new_dist);
+
 int main(void) {
     // Seed random engine
     srand((unsigned) time(NULL));
@@ -190,6 +206,9 @@ int main(void) {
     
     // Initialize buffer cursors
     init_cursors();
+    
+    // Initialize dijkstra global variables
+    init_dijkstra();
     
     // intialize interrupt services
     init_IRQ();

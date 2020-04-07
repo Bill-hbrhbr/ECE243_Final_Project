@@ -76,3 +76,26 @@ void init_cursors(void) {
         cursor_info[i].y = 0;
     }
 }
+
+void init_dijkstra(void) {
+    // Set all vacancy to false
+    memset(vacant, false, DIJKSTRA_SIZE * sizeof(bool));
+    // Set all the border boxes to true
+    int r, c;
+    // Left
+    for (r = 0, c = 0; r < NUM_ROWS + 2; ++r) {
+        vacant[r * (NUM_COLS + 2) + c] = true;
+    }
+    // Right
+    for (r = 0, c = NUM_COLS + 1; r < NUM_ROWS + 2; ++r) {
+        vacant[r * (NUM_COLS + 2) + c] = true;
+    }
+    // Top
+    for (r = 0, c = 0; c < NUM_COLS + 2; ++c) {
+        vacant[r * (NUM_COLS + 2) + c] = true;
+    }
+    // Bottom
+    for (r = NUM_ROWS + 1, c = 0; c < NUM_COLS + 2; ++c) {
+        vacant[r * (NUM_COLS + 2) + c] = true;
+    }
+}

@@ -16,9 +16,10 @@ void mouse_isr(void) {
     mouse_byte3 = ps2_data & 0xFF;
     
     // If the mouse is inactive, make it send data
-    if (mouse_byte2 == 0xAA && mouse_byte3 == 0x00) {
+    if (!run_mouse && mouse_byte2 == 0xAA && mouse_byte3 == 0x00) {
         *ps2_ptr = 0xF4; // send data command
         mouse_byte_num = 0;
+        run_mouse = true;
         return;
     } else {
         mouse_byte_num = (mouse_byte_num + 1) % 3;
@@ -109,14 +110,10 @@ void update_grid_status(int r, int c) {
         clicked_col = c;
         return;
     }
-    // Color matches the last selection and both blocks are exposed: elinminate
+    // Color matches the last selection and both blocks are connected
     if (s[clicked_row][clicked_col].color == s[r][c].color &&
-        s[clicked_row][clicked_col].exposed && s[r][c].exposed) {
-        // update status variables of both blocks
-        s[clicked_row][clicked_col].active = false;
-        s[clicked_row][clicked_col].exposed = false;
-        s[r][c].active = false;
-        s[r][c].exposed = false;
+        find_path(clicked_row, clicked_col, r, c)) 
+    {
         // get rid of the boxes
         remove_block(clicked_row, clicked_col);
         remove_block(r, c);
@@ -172,9 +169,13 @@ void mark_selection(int r, int c, short int color) {
 
 // Remove a box from the screen
 void remove_block(int r, int c) {
+    // update status variables of the block
+    s[r][c].active = false;
+    s[r][c].exposed = false;
     // Get the topleft corner of the block
     int block_left = grid_left + c * SQUARE_SIZE;
     int block_top = grid_top + r * SQUARE_SIZE;
+    // Update buffers
     for (int x = 0; x < SQUARE_SIZE; ++x) {
         for (int y = 0; y < SQUARE_SIZE; ++y) {
             buffer[block_left + x][block_top + y] = COLOR_BLACK;
@@ -182,4 +183,6 @@ void remove_block(int r, int c) {
             plot_pixel_with_buffer(FPGA_ONCHIP_BASE, block_left + x, block_top + y, COLOR_BLACK);
         }
     }
+    // Update the vacant matrix
+    vacant[get_dijkstra_id(r, c)] = true;
 }
