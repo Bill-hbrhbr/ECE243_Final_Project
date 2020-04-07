@@ -86,7 +86,7 @@
 #define SQUARE_SIZE           30
 #define NUM_ROWS              6
 #define NUM_COLS              8
-#define NUM_BUFFERS           2
+#define NUM_BUFFERS           3
 #define CURSOR_SIZE           20
 #define SELECT_WIDTH          2
 #define GAME_TIME             70  /* in seconds */
@@ -138,13 +138,15 @@ Square s[NUM_ROWS][NUM_COLS];
 
 // Screen pixel colors
 short int buffer[SCREEN_WIDTH][SCREEN_HEIGHT];
+short int load_buffer[SCREEN_WIDTH][SCREEN_HEIGHT];
 
 // Cursors
 int current_buffer_number;
-typedef struct cursor{
-    int x, y;
-} Cursor;
-Cursor cursor_info[NUM_BUFFERS];
+typedef struct buffer_info{
+    int cursor_x, cursor_y;
+    unsigned int buffer_addr;
+} BufferInfo;
+BufferInfo buffers[NUM_BUFFERS];
 
 // global variables
 volatile unsigned char mouse_byte1, mouse_byte2, mouse_byte3;
@@ -159,6 +161,7 @@ bool last_clicked = false, run_mouse = false;
 int clicked_row = -1, clicked_col = -1;
 double play_time = 0;
 int timer_pos = TIMER_BOT;
+volatile bool game_start = false;
 
 // Dijkstra global variables
 #define DIJKSTRA_SIZE ((NUM_ROWS + 2) * (NUM_COLS + 2))
@@ -181,6 +184,7 @@ unsigned int connect_pixels[10000];
 // Prototypes
 void *memset(void *str, int c, size_t n);
 void init_buffer(void);
+void init_load_buffer(void);
 void init_blocks(void);
 void init_cursors(void);
 void init_dijkstra(void);
@@ -201,7 +205,7 @@ void timer_isr(void);
 void __cs3_isr_irq(void);
 void init_IRQ(void);
 
-void vga_init(void);
+void vga_init(int id1, int id2);
 void draw_box(int left, int top, int size, short int box_color);
 void wait_for_vsync(void);
 void plot_pixel(int x, int y, short int pixel_color);
@@ -210,7 +214,7 @@ void swap(int *x, int *y);
 void draw_line(int x0, int y0, int x1, int y1, short int line_color);
 void clear_screen(void);
 void draw_buffer(void);
-void draw_cursor(int left, int top, bool erase);
+void draw_cursor(int left, int top, bool erase, int target_buffer[SCREEN_WIDTH][SCREEN_HEIGHT]);
 
 bool find_path(int src_row, int src_col, int dest_row, int dest_col);
 inline int get_dijkstra_id(int r, int c);
@@ -221,14 +225,22 @@ int main(void) {
     // Seed random engine
     srand((unsigned) time(NULL));
     
-    // Initialize buffer
-    init_buffer();
-    
-    // Initialize blocks
-    init_blocks();
+    // Initialize buffer address
+    buffers[0].buffer_addr = FPGA_ONCHIP_BASE;
+    buffers[1].buffer_addr = SDRAM_BASE;
+    buffers[2].buffer_addr = SDRAM_BASE + 0x10000;
     
     // Initialize buffer cursors
     init_cursors();
+    
+    // Initialize buffer
+    init_buffer();
+    
+    // Initialize load buffer
+    init_load_buffer();
+    
+    // Initialize blocks
+    init_blocks();
     
     // Initialize dijkstra global variables
     init_dijkstra();
@@ -236,15 +248,44 @@ int main(void) {
     // intialize interrupt services
     init_IRQ();
     
-    // initialize two buffers
-    vga_init();
+    // set initial buffer number
+    current_buffer_number = 2;
+    
+    // initialize to the loading screen
+    vga_init(2, 2);
+    
+    // Wait for initial left click
+    while (!game_start) {
+        // new back buffer
+        pixel_buffer_start = *pixel_back_buffer_ptr; 
+        
+        // erase the previous cursor
+        draw_cursor(buffers[current_buffer_number].cursor_x, buffers[current_buffer_number].cursor_y, true, load_buffer);
+        
+        // draw the new cursor
+        draw_cursor(mouse_x, mouse_y, false, load_buffer);
+        
+        // update the cursor info
+        buffers[current_buffer_number].cursor_x = mouse_x;
+        buffers[current_buffer_number].cursor_y = mouse_y;
+        
+        // Write a one to the front buffer to turn on status flag S
+        *pixel_front_buffer_ptr = 1;
+        
+        // poll the status register. if the flag is still on, wait
+        wait_for_vsync();
+    }
+    
+    // Initialize the player screen
+    current_buffer_number = 0;
+    vga_init(0, 1);
     
     while (1) {
         // new back buffer
         pixel_buffer_start = *pixel_back_buffer_ptr; 
         
         // erase the previous cursor
-        draw_cursor(cursor_info[current_buffer_number].x, cursor_info[current_buffer_number].y, true);
+        draw_cursor(buffers[current_buffer_number].cursor_x, buffers[current_buffer_number].cursor_y, true, buffer);
         
         // draw connection if there is any
         if (draw_connection) {
@@ -274,11 +315,11 @@ int main(void) {
         }
         
         // draw the new cursor
-        draw_cursor(mouse_x, mouse_y, false);
+        draw_cursor(mouse_x, mouse_y, false, buffer);
         
         // update the cursor info
-        cursor_info[current_buffer_number].x = mouse_x;
-        cursor_info[current_buffer_number].y = mouse_y;
+        buffers[current_buffer_number].cursor_x = mouse_x;
+        buffers[current_buffer_number].cursor_y = mouse_y;
         
         // Write a one to the front buffer to turn on status flag S
         *pixel_front_buffer_ptr = 1;

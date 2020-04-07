@@ -5,6 +5,15 @@ void timer_isr(void) {
     volatile int *timer_acknowledge_ptr = timer_base_ptr + 0x3;
     // Acknowledge the interrupt
     *timer_acknowledge_ptr = 0x1;
+    
+    // if the game hasn't started, do not perform anything
+    if (!game_start) {
+        return;
+    } else {
+        // Start the timer
+        play_time = 0;
+    }
+    
     play_time += TIME_DIV;
     if (play_time == GAME_TIME) {
         *timer_ctrl_ptr = 0; // clear all signals

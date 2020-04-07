@@ -69,7 +69,11 @@ void mouse_isr(void) {
     // check if the left button is clicked on an object
     bool clicked = (bool) (mouse_byte1 & 0x1);
     // Edge-triggered rather than level sensitive
-    if (clicked && !last_clicked && !draw_connection) {
+    if (clicked && !game_start) {
+        // start the game
+        game_start = true;
+    }
+    else if (clicked && !last_clicked && !draw_connection) {
         int r, c;
         bool click_valid = get_clicked_tile(&r, &c);
         if (click_valid) {

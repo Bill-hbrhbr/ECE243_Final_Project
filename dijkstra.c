@@ -1,15 +1,3 @@
-#define DIJKSTRA_SIZE ((NUM_ROWS + 2) * (NUM_COLS + 2))
-typedef struct node {
-    int index;
-    unsigned distance;
-} Node;
-Node priority_queue[DIJKSTRA_SIZE];
-//bool processed[DIJKSTRA_SIZE];
-int backtrack[DIJKSTRA_SIZE];
-unsigned int best_distances[DIJKSTRA_SIZE];
-bool vacant[DIJKSTRA_SIZE];
-int queue_size;
-
 // Find path between two tiles. Return true if found, false if not
 bool find_path(int src_row, int src_col, int dest_row, int dest_col) {
     // Clear the processed array: set all to false

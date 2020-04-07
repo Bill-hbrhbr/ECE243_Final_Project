@@ -23,9 +23,16 @@ void init_buffer(void) {
             buffer[x + TIMER_ICON_LEFT][y + TIMER_ICON_TOP] = ~color;
         }
     }
-    
-    // set initial buffer number
-    current_buffer_number = 0;
+}
+
+void init_load_buffer(void) {
+    for (int x = 0; x < SCREEN_WIDTH; ++x) {
+        for (int y = 0; y < SCREEN_HEIGHT; ++y) {
+            short int color = (loading_mif[y][x * 2] << 8) | (loading_mif[y][x * 2 + 1]);
+            load_buffer[x][y] = color;
+            plot_pixel_with_buffer(buffers[2].buffer_addr, x, y, color);
+        }
+    }
 }
 
 void init_blocks(void) {
@@ -111,8 +118,8 @@ void init_blocks(void) {
 void init_cursors(void) {
     // Set initial position to 0 to avoid vga index out of range
     for (int i = 0; i < NUM_BUFFERS; ++i) {
-        cursor_info[i].x = 0;
-        cursor_info[i].y = 0;
+        buffers[i].cursor_x = 0;
+        buffers[i].cursor_y = 0;
     }
 }
 

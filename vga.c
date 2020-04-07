@@ -1,7 +1,7 @@
 /* initialize two buffers */
-void vga_init(void) {
+void vga_init(int id1, int id2) {
     // Set back buffer
-    *pixel_back_buffer_ptr = SDRAM_BASE; // start of SDRAM memory
+    *pixel_back_buffer_ptr = buffers[id1].buffer_addr;
     // Clear back buffer
     pixel_buffer_start = *pixel_back_buffer_ptr; // point to the back buffer
     draw_buffer();
@@ -11,7 +11,7 @@ void vga_init(void) {
     wait_for_vsync();
     
     // Set front buffer
-    *pixel_back_buffer_ptr = FPGA_ONCHIP_BASE; // start of FPGA On-Chip Memory
+    *pixel_back_buffer_ptr = buffers[id2].buffer_addr;
     // Clear front buffer
     pixel_buffer_start = *pixel_back_buffer_ptr; // point to the back buffer
     draw_buffer();
@@ -103,13 +103,17 @@ void clear_screen(void) {
 void draw_buffer(void) {
     for (int x = 0; x < SCREEN_WIDTH; ++x) {
         for (int y = 0; y < SCREEN_HEIGHT; ++y) {
-            plot_pixel(x, y, buffer[x][y]);
+            if (current_buffer_number == 2) {
+                plot_pixel(x, y, load_buffer[x][y]);
+            } else {
+                plot_pixel(x, y, buffer[x][y]);
+            }
         }
     }
 }
 
 /* draw cursor */
-void draw_cursor(int left, int top, bool erase) {
+void draw_cursor(int left, int top, bool erase, int target_buffer[SCREEN_WIDTH][SCREEN_HEIGHT]) {
     short int color;
     for (int x = 0; x < CURSOR_SIZE; ++x) {
         for (int y = 0; y < CURSOR_SIZE; ++y) {
@@ -129,7 +133,7 @@ void draw_cursor(int left, int top, bool erase) {
             // Check erase conditions
             if (erase) {
                 // Replace the pixel with buffer content
-                plot_pixel(vga_x, vga_y, buffer[vga_x][vga_y]);
+                plot_pixel(vga_x, vga_y, target_buffer[vga_x][vga_y]);
                 
             } else {
                 // draw a white cursor
